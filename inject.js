@@ -51,6 +51,8 @@
   function sourceMatches(source, url) {
     const target = sourceTarget(source.key, url);
     const value = source.value == null ? "" : String(source.value);
+    // A blank pattern would match every request on every site; treat it as "not set up yet".
+    if (!value.trim()) return false;
     switch (source.operator) {
       case "Contains":
         return target.includes(value);
@@ -79,13 +81,31 @@
     for (const rule of config.rules) {
       if (rule.status !== "Active") continue;
       for (const pair of rule.pairs || []) {
-        if (pair.response && pair.source && sourceMatches(pair.source, url)) matches.push({ pair, rule });
+        if (!pair.response || !pair.source || !sourceMatches(pair.source, url)) continue;
+        if (pair.response.type === "code" && !canEval()) continue;
+        matches.push({ pair, rule });
       }
     }
     return matches;
   }
 
   // ---- applying -----------------------------------------------------------
+
+  // Pages whose Content-Security-Policy forbids 'unsafe-eval' (Outlook, GitHub, many banks…) can't run
+  // JS rewrite rules from the page. Probe once, warn once, and leave those requests completely alone.
+  let evalAllowed;
+  function canEval() {
+    if (evalAllowed === undefined) {
+      try {
+        new Function("");
+        evalAllowed = true;
+      } catch (e) {
+        evalAllowed = false;
+        console.warn(TAG, `${location.host} blocks code evaluation (Content Security Policy), so "Rewrite with JS" rules are skipped here. Static response rules still work.`);
+      }
+    }
+    return evalAllowed;
+  }
 
   const compiled = new Map();
   function compile(code) {
@@ -185,7 +205,10 @@
     }
 
     const result = apply(matches, { method, requestData: requestDataFor(body), status, text, url });
-    const response = new Response(result.text, { headers, status: result.status });
+    // 101/103/204/205/304 responses must not carry a body, and Response() only accepts 200-599.
+    const outStatus = result.status >= 200 && result.status <= 599 ? result.status : 200;
+    const nullBody = outStatus === 204 || outStatus === 205 || outStatus === 304;
+    const response = new Response(nullBody ? null : result.text, { headers, status: outStatus });
     Object.defineProperty(response, "url", { value: url });
     return response;
   };

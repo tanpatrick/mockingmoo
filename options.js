@@ -62,10 +62,100 @@ async function formatBody(response, area, note) {
     }
     response.value = area.value;
     save();
+    play(area.closest(".editor"), [{ boxShadow: "0 0 0 0 rgba(255,200,87,.9)" }, { boxShadow: "0 0 0 8px rgba(255,200,87,0)" }], { duration: 600 });
   } catch (err) {
     note.textContent = err.message.split("\n")[0];
   }
 }
+
+// ---- motion ---------------------------------------------------------------
+const calm = matchMedia("(prefers-reduced-motion: reduce)");
+const EASE = "cubic-bezier(.2, .8, .2, 1)";
+let busy = false;    // a card is mid-animation; ignore repeat clicks
+let pending = null;  // { id, kind: "expand" | "enter" } to play after the next render
+let settle = true;   // fade the list in on the next render (load, search, filter)
+
+const cardEl = (id) => document.querySelector(`.rule[data-id="${id}"]`);
+const play = (el, frames, opts) => (calm.matches || !el ? Promise.resolve() : el.animate(frames, { easing: EASE, ...opts }).finished);
+
+function heightFrames(el, opening) {
+  const cs = getComputedStyle(el);
+  const full = { height: `${el.scrollHeight}px`, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, opacity: 1 };
+  const shut = { height: "0px", paddingTop: "0px", paddingBottom: "0px", opacity: 0 };
+  return opening ? [shut, full] : [full, shut];
+}
+
+function afterRender() {
+  const job = pending;
+  pending = null;
+  if (job) {
+    const card = cardEl(job.id);
+    if (card && job.kind === "enter") {
+      play(card, [
+        { opacity: 0, transform: "translateY(-10px) scale(.97)" },
+        { opacity: 1, transform: "translateY(2px) scale(1.005)", offset: 0.7 },
+        { opacity: 1, transform: "none" },
+      ], { duration: 360 });
+    }
+    if (card) {
+      const body = card.querySelector(".body");
+      if (body) { body.style.overflow = "hidden"; play(body, heightFrames(body, true), { duration: 300 }).then(() => (body.style.overflow = "")); }
+      play(card.querySelector(".chev"), [{ transform: "rotate(0deg)" }, { transform: "rotate(180deg)" }], { duration: 300 });
+    }
+  }
+  if (settle) {
+    settle = false;
+    [...document.getElementById("rules").children].slice(0, 12).forEach((el, i) =>
+      play(el, [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 260, delay: i * 30, fill: "backwards" })
+    );
+  }
+}
+
+async function expand(rule) {
+  if (busy) return;
+  busy = true;
+  if (open.has(rule.id)) {
+    const card = cardEl(rule.id);
+    const body = card && card.querySelector(".body");
+    if (body) {
+      body.style.overflow = "hidden";
+      await Promise.all([
+        play(body, heightFrames(body, false), { duration: 220, fill: "forwards" }),
+        play(card.querySelector(".chev"), [{ transform: "rotate(180deg)" }, { transform: "rotate(0deg)" }], { duration: 220, fill: "forwards" }),
+      ]);
+    }
+    open.delete(rule.id);
+  } else {
+    open.add(rule.id);
+    pending = { id: rule.id, kind: "expand" };
+  }
+  busy = false;
+  render();
+}
+
+async function removeRule(rule) {
+  const ok = await confirmDialog({
+    title: `Delete “${rule.name || "Untitled rule"}”?`,
+    body: "This cow leaves the herd for good. Export first if you might want it back.",
+    confirmLabel: "Delete rule",
+  });
+  if (!ok) return;
+  const card = cardEl(rule.id);
+  if (card) {
+    card.style.overflow = "hidden";
+    await play(card, [
+      { height: `${card.offsetHeight}px`, opacity: 1, transform: "none", marginBottom: "0px" },
+      { height: `${card.offsetHeight}px`, opacity: 0, transform: "translateX(24px) rotate(1deg)", marginBottom: "0px", offset: 0.55 },
+      { height: "0px", opacity: 0, transform: "translateX(24px)", marginBottom: "-16px", borderWidth: "0px" },
+    ], { duration: 340, fill: "forwards" });
+  }
+  state.rules = state.rules.filter((r) => r !== rule);
+  open.delete(rule.id);
+  save(); render();
+}
+
+// Let a switch finish sliding before the page is rebuilt underneath it.
+const soon = (fn) => setTimeout(fn, calm.matches ? 0 : 170);
 
 const TYPES = [["code", "Rewrite with JS"], ["static", "Static response"]];
 let query = "";
@@ -113,26 +203,31 @@ function pairEditor(rule, pair, index) {
           value: source.value,
           placeholder: "e.g. /api/users",
           "aria-label": "URL pattern",
-          oninput: (e) => { source.value = e.target.value; save(); },
+          oninput: (e) => {
+            source.value = e.target.value;
+            e.target.closest(".step").querySelector(".blank-note").classList.toggle("gone", !!source.value.trim());
+            const summary = e.target.closest(".rule").querySelector(".summary");
+            summary.textContent = summary.title = ruleSummary(rule);
+            save();
+          },
         }),
         many &&
           h("button", {
             type: "button", class: "ghost icon-btn", "aria-label": "Remove this URL match", title: "Remove this URL match",
             onclick: () => { rule.pairs = rule.pairs.filter((p) => p !== pair); save(); render(); },
           }, icon("x"))
-      )
+      ),
+      h("span", { class: `hint blank-note${String(source.value || "").trim() ? " gone" : ""}`, "aria-hidden": "false" },
+        "Add a URL pattern. Until then this match does nothing, so a new rule can't hijack every request.")
     ),
     h(
       "div",
       { class: "step" },
       h("div", { class: "step-label" }, h("span", { class: "num" }, many ? `${index + 1}b` : "2"), "…then moo back with"),
-      h(
-        "div",
-        { class: "tabs", role: "tablist", "aria-label": "Response type" },
-        TYPES.map(([v, label]) =>
-          h("button", { type: "button", role: "tab", "aria-selected": String(response.type === v), onclick: () => setType(response, v) }, label)
-        )
-      ),
+      segmented({
+        key: `type-${pair.id}`, items: TYPES, value: response.type, tabs: true, cls: "type",
+        label: "Response type", onPick: (v) => setType(response, v),
+      }),
       isStatic &&
         h(
           "div",
@@ -163,7 +258,7 @@ function pairEditor(rule, pair, index) {
           ["url", "method", "requestData", "response", "responseJSON", "statusCode"].flatMap((n, i, all) => [
             h("code", {}, n), i < all.length - 2 ? ", " : i === all.length - 2 ? " and " : "",
           ]),
-          ". Return a string or an object.")
+          ". Return a string or an object. Sites with a strict Content Security Policy (e.g. Outlook, GitHub) block JS rewrites; use a static response there.")
     )
   );
 }
@@ -179,19 +274,18 @@ function cloneRule(rule) {
 function ruleCard(rule) {
   const isOpen = open.has(rule.id);
   const active = rule.status === "Active";
-  const flip = () => { isOpen ? open.delete(rule.id) : open.add(rule.id); render(); };
   return h(
     "section",
-    { class: `rule${isOpen ? " open" : ""}${active ? "" : " paused"}`, "aria-label": `Rule: ${rule.name}` },
+    { class: `rule${isOpen ? " open" : ""}${active ? "" : " paused"}`, "data-id": rule.id, "aria-label": `Rule: ${rule.name}` },
     h(
       "div",
       { class: "head" },
-      toggle(active, (on) => { rule.status = on ? "Active" : "Inactive"; save(); render(); }, "Rule active"),
+      toggle(active, (on) => { rule.status = on ? "Active" : "Inactive"; save(); soon(render); }, "Rule active"),
       h(
         "div",
         { class: "title" },
         h("input", { type: "text", value: rule.name, "aria-label": "Rule name", oninput: (e) => { rule.name = e.target.value; save(); } }),
-        !isOpen && h("span", { class: "summary", title: ruleSummary(rule) }, ruleSummary(rule))
+        h("span", { class: "summary", title: ruleSummary(rule) }, ruleSummary(rule))
       ),
       active
         ? h("span", { class: `badge ${ruleKind(rule)}` }, ruleKind(rule) === "static" ? "Static" : "JS rewrite")
@@ -203,14 +297,11 @@ function ruleCard(rule) {
           const copy = cloneRule(rule);
           state.rules.splice(state.rules.indexOf(rule) + 1, 0, copy);
           open.add(copy.id);
+          pending = { id: copy.id, kind: "enter" };
           save(); render();
         } }, icon("copy")),
-        h("button", { type: "button", class: "icon-btn", title: isOpen ? "Collapse" : "Edit", "aria-label": isOpen ? "Collapse rule" : "Edit rule", "aria-expanded": String(isOpen), onclick: flip }, icon(isOpen ? "up" : "down")),
-        h("button", { type: "button", class: "icon-btn danger", title: "Delete", "aria-label": "Delete rule", onclick: () => {
-          if (!confirm(`Delete "${rule.name}"?`)) return;
-          state.rules = state.rules.filter((r) => r !== rule);
-          save(); render();
-        } }, icon("trash"))
+        h("button", { type: "button", class: "icon-btn", title: isOpen ? "Collapse" : "Edit", "aria-label": isOpen ? "Collapse rule" : "Edit rule", "aria-expanded": String(isOpen), onclick: () => expand(rule) }, h("span", { class: `chev${isOpen ? " flipped" : ""}` }, icon("down"))),
+        h("button", { type: "button", class: "icon-btn danger", title: "Delete", "aria-label": "Delete rule", onclick: () => removeRule(rule) }, icon("trash"))
       )
     ),
     isOpen &&
@@ -230,10 +321,11 @@ function matchesQuery(rule) {
 }
 
 function render() {
+  const pills = capturePills();
   document.getElementById("global").replaceChildren(
     h("label", { class: `master${state.enabled ? "" : " off"}` },
-      toggle(state.enabled, (on) => { state.enabled = on; Store.save({ enabled: on }); render(); }, "Enable mocking"),
-      state.enabled ? "Mooing" : "Napping")
+      toggle(state.enabled, (on) => { state.enabled = on; Store.save({ enabled: on }); soon(render); }, "Enable mocking"),
+      h("span", { class: "master-label" }, state.enabled ? "Mooing" : "Napping"))
   );
 
   const counts = {
@@ -241,10 +333,14 @@ function render() {
     active: state.rules.filter((r) => r.status === "Active").length,
   };
   counts.paused = counts.all - counts.active;
-  document.getElementById("filters").replaceChildren(
-    ...[["all", "All"], ["active", "Active"], ["paused", "Paused"]].map(([key, label]) =>
-      h("button", { type: "button", "aria-pressed": String(filter === key), onclick: () => { filter = key; render(); } }, `${label} · ${counts[key]}`)
-    )
+  document.getElementById("filters").replaceWith(
+    Object.assign(segmented({
+      key: "filters",
+      label: "Filter rules",
+      value: filter,
+      items: [["all", "All"], ["active", "Active"], ["paused", "Paused"]].map(([k, label]) => [k, `${label} · ${counts[k]}`]),
+      onPick: (k) => { filter = k; settle = true; render(); },
+    }), { id: "filters" })
   );
 
   const shown = state.rules.filter(
@@ -263,6 +359,8 @@ function render() {
   } else {
     root.replaceChildren(...shown.map(ruleCard));
   }
+  placePills(pills);
+  afterRender();
 }
 
 function importRules(text) {
@@ -317,6 +415,7 @@ function addRule() {
   const rule = { id: newId(), name: "New rule", description: "", status: "Active", pairs: [newPair()] };
   state.rules.unshift(rule);
   open.add(rule.id);
+  pending = { id: rule.id, kind: "enter" };
   query = "";
   filter = "all";
   document.getElementById("search").value = "";
@@ -325,7 +424,7 @@ function addRule() {
 
 document.getElementById("add").addEventListener("click", addRule);
 document.getElementById("search-icon").replaceWith(icon("search"));
-document.getElementById("search").addEventListener("input", (e) => { query = e.target.value.trim().toLowerCase(); render(); });
+document.getElementById("search").addEventListener("input", (e) => { query = e.target.value.trim().toLowerCase(); settle = true; render(); });
 document.getElementById("export").addEventListener("click", exportRules);
 document.getElementById("import").addEventListener("click", () => document.getElementById("file").click());
 document.getElementById("file").addEventListener("change", async (e) => {
@@ -353,6 +452,9 @@ Store.load().then((loaded) => {
 // Pick up changes made from the popup, but never re-render while the user is typing.
 chrome.storage.onChanged.addListener(async () => {
   if (document.activeElement && document.activeElement.matches("input[type=text], input[type=number], textarea")) return;
-  state = await Store.load();
+  const fresh = await Store.load();
+  // Our own saves echo back here; skip those so running animations aren't rebuilt mid-flight.
+  if (fresh.enabled === state.enabled && JSON.stringify(fresh.rules) === JSON.stringify(state.rules)) return;
+  state = fresh;
   render();
 });

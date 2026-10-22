@@ -1,6 +1,11 @@
 const openOptions = (hash = "") =>
   chrome.tabs.create({ url: chrome.runtime.getURL(`options.html${hash}`) }).then(() => window.close());
 
+const calm = matchMedia("(prefers-reduced-motion: reduce)");
+// Let a switch finish sliding before storage changes rebuild the popup.
+const soon = (fn) => setTimeout(fn, calm.matches ? 0 : 170);
+let firstPaint = true;
+
 async function setRuleStatus(id, on) {
   const fresh = (await Store.load()).rules;
   const target = fresh.find((r) => r.id === id);
@@ -13,7 +18,10 @@ async function render() {
   const active = rules.filter((r) => r.status === "Active").length;
 
   document.getElementById("master").replaceChildren(
-    toggle(enabled, (on) => Store.save({ enabled: on }), enabled ? "Turn Mockingmoo off" : "Turn Mockingmoo on")
+    toggle(enabled, (on) => {
+      document.querySelector(".card").classList.toggle("off", !on);
+      soon(() => Store.save({ enabled: on }));
+    }, enabled ? "Turn Mockingmoo off" : "Turn Mockingmoo on")
   );
 
   const status = h(
@@ -38,8 +46,11 @@ async function render() {
           const on = rule.status === "Active";
           return h(
             "div",
-            { class: `row${on ? "" : " paused"}` },
-            toggle(on, (v) => setRuleStatus(rule.id, v), `${rule.name} active`, "sm"),
+            { class: `row${on ? "" : " paused"}`, "data-id": rule.id },
+            toggle(on, (v) => {
+              document.querySelector(`.row[data-id="${rule.id}"]`).classList.toggle("paused", !v);
+              soon(() => setRuleStatus(rule.id, v));
+            }, `${rule.name} active`, "sm"),
             h(
               "div",
               { class: "text" },
@@ -64,6 +75,15 @@ async function render() {
     ),
     h("button", { type: "button", class: "primary wide", onclick: () => openOptions("#new") }, icon("plus"), "New rule")
   );
+
+  if (firstPaint && !calm.matches) {
+    document.querySelectorAll(".popup main > *, .row").forEach((el, i) =>
+      el.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], {
+        duration: 240, delay: Math.min(i, 10) * 35, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards",
+      })
+    );
+  }
+  firstPaint = false;
 }
 
 const manage = document.getElementById("manage");
