@@ -1,0 +1,50 @@
+name: Build extension
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version from manifest
+        id: meta
+        run: echo "version=$(jq -r .version manifest.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Check tag matches manifest version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          if [ "${GITHUB_REF_NAME#v}" != "${{ steps.meta.outputs.version }}" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match manifest version ${{ steps.meta.outputs.version }}" >&2
+            exit 1
+          fi
+
+      - name: Package extension
+        run: |
+          mkdir -p dist
+          zip -r "dist/mockingmoo-${{ steps.meta.outputs.version }}.zip" \
+            manifest.json bridge.js inject.js shared.js \
+            popup.html popup.js options.html options.js styles.css \
+            icons vendor \
+            -x "*.DS_Store"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mockingmoo-${{ steps.meta.outputs.version }}
+          path: dist/*.zip
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
