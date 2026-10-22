@@ -1,0 +1,106 @@
+[
+  {
+    "id": "sample_users",
+    "schemaVersion": "3.0.0",
+    "name": "Static: users list",
+    "description": "Returns a fixed JSON body for GET /api/users without calling the network (fetch).",
+    "ruleType": "Response",
+    "status": "Inactive",
+    "groupId": "",
+    "isSample": false,
+    "pairs": [
+      {
+        "id": "a1",
+        "source": {
+          "key": "Url",
+          "operator": "Contains",
+          "value": "/api/users"
+        },
+        "response": {
+          "type": "static",
+          "value": "{\n  \"users\": [\n    {\n      \"id\": 1,\n      \"name\": \"Ada Lovelace\"\n    },\n    {\n      \"id\": 2,\n      \"name\": \"Grace Hopper\"\n    }\n  ]\n}",
+          "statusCode": "200",
+          "serveWithoutRequest": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "sample_orders_500",
+    "schemaVersion": "3.0.0",
+    "name": "Static: orders API fails",
+    "description": "Simulates a server error so you can check error handling.",
+    "ruleType": "Response",
+    "status": "Inactive",
+    "groupId": "",
+    "isSample": false,
+    "pairs": [
+      {
+        "id": "b1",
+        "source": {
+          "key": "Url",
+          "operator": "Contains",
+          "value": "/api/orders"
+        },
+        "response": {
+          "type": "static",
+          "value": "{\n  \"error\": \"Internal Server Error\"\n}",
+          "statusCode": "500",
+          "serveWithoutRequest": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "sample_items_rewrite",
+    "schemaVersion": "3.0.0",
+    "name": "Rewrite: trim items",
+    "description": "Calls the real API, keeps the first two items and flags the first as archived.",
+    "ruleType": "Response",
+    "status": "Inactive",
+    "groupId": "",
+    "isSample": false,
+    "pairs": [
+      {
+        "id": "c1",
+        "source": {
+          "key": "Url",
+          "operator": "Contains",
+          "value": "/api/items"
+        },
+        "response": {
+          "type": "code",
+          "value": "function modifyResponse({ responseJSON }) {\n  const items = (responseJSON.items || []).slice(0, 2);\n  if (items[0]) items[0].archived = true;\n  return { ...responseJSON, items };\n}\n",
+          "statusCode": "200",
+          "serveWithoutRequest": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "sample_graphql_operation",
+    "schemaVersion": "3.0.0",
+    "name": "Rewrite: mock one GraphQL operation",
+    "description": "Replaces the response only when the request's operationName is GetUser; every other operation passes through.",
+    "ruleType": "Response",
+    "status": "Inactive",
+    "groupId": "",
+    "isSample": false,
+    "pairs": [
+      {
+        "id": "d1",
+        "source": {
+          "key": "Url",
+          "operator": "Contains",
+          "value": "/graphql"
+        },
+        "response": {
+          "type": "code",
+          "value": "function modifyResponse({ requestData, response }) {\n  // JSON request bodies arrive already parsed.\n  if (!requestData || requestData.operationName !== \"GetUser\") return response;\n  return { data: { user: { id: \"1\", name: \"Mocked User\" } } };\n}\n",
+          "statusCode": "200",
+          "serveWithoutRequest": true
+        }
+      }
+    ]
+  }
+]

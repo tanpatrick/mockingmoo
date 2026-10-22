@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mockingmoo - Rules</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="icons/icon-32.png">
+</head>
+<body class="options">
+  <header class="top">
+    <svg class="spots" viewBox="0 0 160 90" aria-hidden="true">
+      <path d="M20 30 C40 0 90 10 92 40 C94 66 60 80 40 70 C18 60 8 46 20 30 Z" fill="currentColor"/>
+      <path d="M120 50 C134 36 158 44 156 64 C154 82 130 86 122 74 C116 66 114 58 120 50 Z" fill="currentColor"/>
+    </svg>
+    <div class="brand">
+      <img class="logo" src="icons/logo-small.svg" alt="" width="56" height="56">
+      <div>
+        <h1 class="wordmark">Mocking<span>moo</span></h1>
+        <p>Mock and rewrite API responses. Free, no account.</p>
+      </div>
+    </div>
+    <div class="actions">
+      <span id="global"></span>
+      <button id="import" type="button">Import</button>
+      <button id="export" type="button">Export</button>
+      <button id="add" class="primary" type="button">New rule</button>
+      <input id="file" type="file" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <label class="search">
+      <span class="sr-only">Search rules</span>
+      <span id="search-icon"></span>
+      <input id="search" type="search" placeholder="Search the herd…" autocomplete="off">
+    </label>
+    <div id="filters" class="segmented" role="group" aria-label="Filter rules"></div>
+  </div>
+
+  <div id="msg" class="msg" role="status"></div>
+  <main id="rules"></main>
+
+  <script src="vendor/prettier/standalone.js"></script>
+  <script src="vendor/prettier/babel.js"></script>
+  <script src="vendor/prettier/estree.js"></script>
+  <script src="shared.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
