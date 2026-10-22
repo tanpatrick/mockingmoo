@@ -6,6 +6,20 @@ A small Chrome extension that intercepts `fetch` and `XMLHttpRequest` calls by U
 
 It works with any HTTP API (REST, GraphQL, RPC), and it can import Requestly "Response" rule exports.
 
+## Screenshots
+
+The toolbar popup lists your rules with a master switch and a switch per rule:
+
+<img src="docs/popup.png" alt="Mockingmoo popup showing the master switch and a list of rules" width="320">
+
+The rules page lets you search, filter, import, export and manage every rule:
+
+<img src="docs/rules.png" alt="Mockingmoo rules page with four rules, three active and one paused" width="720">
+
+Expand a rule to edit its URL match and response, with a built-in Prettier button for JS and JSON:
+
+<img src="docs/editor.png" alt="A rule expanded to show the URL match and the modifyResponse.js editor" width="720">
+
 ## Install
 
 1. Open `chrome://extensions` and turn on **Developer mode**.
