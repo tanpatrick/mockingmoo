@@ -1,9 +1,11 @@
 // Isolated-world content script: relays rules from chrome.storage to inject.js (page world).
-const DEFAULTS = { enabled: true, rules: [] };
+const DEFAULTS = { enabled: true, environments: [] };
+
+const host = Env.pageHost(location);
 
 const push = () =>
   chrome.storage.local.get(DEFAULTS).then((config) => {
-    window.postMessage({ source: "mockingmoo:config", config }, "*");
+    window.postMessage({ source: "mockingmoo:config", config: Env.rulesForPage(config, host) }, "*");
   });
 
 push();

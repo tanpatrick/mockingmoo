@@ -27,8 +27,13 @@ const Env = {
   pageHost: (loc) => {
     const ancestors = loc.ancestorOrigins;
     if (ancestors && ancestors.length) {
-      const { hostname, port } = new URL(ancestors[ancestors.length - 1]);
-      return { hostname: hostname.toLowerCase(), port };
+      try {
+        const { hostname, port } = new URL(ancestors[ancestors.length - 1]);
+        return { hostname: hostname.toLowerCase(), port };
+      } catch {
+        // Sandboxed or opaque ancestors report "null"; match nothing.
+        return { hostname: "", port: "" };
+      }
     }
     return { hostname: loc.hostname.toLowerCase(), port: loc.port };
   },
@@ -56,7 +61,7 @@ const Env = {
   }),
 
   createEnvironment: ({ domain = "", name = "" } = {}) => ({
-    id: Math.random().toString(16).slice(2, 10).padEnd(8, "0"),
+    id: newId(),
     domain: Env.normalizeDomain(domain),
     name,
     enabled: true,

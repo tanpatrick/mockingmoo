@@ -25,6 +25,11 @@ test("pageHost uses the top-level ancestor origin inside frames", () => {
   assert.deepEqual(Env.pageHost({ hostname: "localhost", port: "3000" }), { hostname: "localhost", port: "3000" });
 });
 
+test("pageHost falls back to a host that matches nothing on an opaque ancestor origin", () => {
+  assert.deepEqual(Env.pageHost({ hostname: "widget.third.com", port: "", ancestorOrigins: ["null"] }), { hostname: "", port: "" });
+  assert.equal(Env.domainMatches("widget.third.com", Env.pageHost({ hostname: "widget.third.com", port: "", ancestorOrigins: ["null"] })), false);
+});
+
 test("rulesForPage sends only matching, enabled, non-parked environments' rules", () => {
   const r = (id) => ({ id, name: id, status: "Active", pairs: [] });
   const config = { enabled: true, environments: [
