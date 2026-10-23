@@ -51,11 +51,11 @@ function envBlock(env, enabled) {
         { class: `list${env.enabled ? "" : " paused"}` },
         rules.map((rule) => {
           const on = rule.status === "Active";
-          return h(
+          const row = h(
             "div",
             { class: `row${on ? "" : " paused"}`, "data-id": rule.id },
             toggle(on, (v) => {
-              list.querySelector(`.row[data-id="${rule.id}"]`).classList.toggle("paused", !v);
+              row.classList.toggle("paused", !v);
               soon(() => setRuleStatus(env.id, rule.id, v));
             }, `${rule.name} active`, "sm"),
             h(
@@ -66,6 +66,7 @@ function envBlock(env, enabled) {
             ),
             !on && h("span", { class: "state" }, "Paused")
           );
+          return row;
         })
       )
     : h("div", { class: "empty" }, h("strong", {}, "No cows yet"), "Add a rule to this environment.");

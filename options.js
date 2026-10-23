@@ -14,7 +14,7 @@ const CODE_TEMPLATE = `function modifyResponse({ url, method, requestData, respo
 `;
 
 let state = { enabled: true, environments: [] };
-const open = new Set();     // ids of expanded rule cards
+const open = new Set();     // keys (see key()) of expanded rule cards
 const openEnvs = new Set(); // ids of expanded environment bands
 let saveTimer;
 
@@ -74,10 +74,15 @@ async function formatBody(response, area, note) {
 const calm = matchMedia("(prefers-reduced-motion: reduce)");
 const EASE = "cubic-bezier(.2, .8, .2, 1)";
 let busy = false;    // a card is mid-animation; ignore repeat clicks
-let pending = null;  // { id, kind: "expand" | "enter" } to play after the next render
+let pending = null;  // { envId, ruleId, kind: "expand" | "enter" } to play after the next render
 let settle = true;   // fade the list in on the next render (load, search, filter)
 
-const cardEl = (id) => document.querySelector(`.rule[data-id="${id}"]`);
+// The same rule id can exist in several environments (one file imported twice), so UI state is keyed by both.
+const key = (env, rule) => `${env.id}/${rule.id}`;
+const cardEl = (envId, ruleId) => {
+  const band = envEl(envId);
+  return band && band.querySelector(`.rule[data-id="${CSS.escape(ruleId)}"]`);
+};
 const play = (el, frames, opts) => (calm.matches || !el ? Promise.resolve() : el.animate(frames, { easing: EASE, ...opts }).finished);
 
 function heightFrames(el, opening) {
@@ -91,7 +96,7 @@ function afterRender() {
   const job = pending;
   pending = null;
   if (job) {
-    const card = cardEl(job.id);
+    const card = cardEl(job.envId, job.ruleId);
     if (card && job.kind === "enter") {
       play(card, [
         { opacity: 0, transform: "translateY(-10px) scale(.97)" },
@@ -113,11 +118,11 @@ function afterRender() {
   }
 }
 
-async function expand(rule) {
+async function expand(env, rule) {
   if (busy) return;
   busy = true;
-  if (open.has(rule.id)) {
-    const card = cardEl(rule.id);
+  if (open.has(key(env, rule))) {
+    const card = cardEl(env.id, rule.id);
     const body = card && card.querySelector(".body");
     if (body) {
       body.style.overflow = "hidden";
@@ -126,10 +131,10 @@ async function expand(rule) {
         play(card.querySelector(".chev"), [{ transform: "rotate(180deg)" }, { transform: "rotate(0deg)" }], { duration: 220, fill: "forwards" }),
       ]);
     }
-    open.delete(rule.id);
+    open.delete(key(env, rule));
   } else {
-    open.add(rule.id);
-    pending = { id: rule.id, kind: "expand" };
+    open.add(key(env, rule));
+    pending = { envId: env.id, ruleId: rule.id, kind: "expand" };
   }
   busy = false;
   render();
@@ -140,7 +145,12 @@ const DUPLICATE_HINT = "That domain already has an environment";
 const INVALID_HINT = "That doesn't look like a domain. Try something like staging.myapp.com or localhost:3000.";
 const PARKED_HINT = "Add a domain. Until then this environment is parked and mocks nothing.";
 
-const envEl = (id) => document.querySelector(`.env[data-env-id="${id}"]`);
+const envEl = (id) => document.querySelector(`.env[data-env-id="${CSS.escape(id)}"]`);
+
+// Objects captured before an await or an open menu can be stale (storage may have replaced state); resolve by id at action time.
+const findEnv = (id) => state.environments.find((e) => e.id === id);
+const findRule = (env, id) => env && env.rules.find((r) => r.id === id);
+const gone = () => { say("That cow has already left the herd."); render(); };
 
 function addEnvironment({ domain = "", name = "", focus = true } = {}) {
   // A domain that fails validation (e.g. an IPv6 host from the popup) opens a blank band to fill in, never a stored null.
@@ -168,9 +178,11 @@ async function removeEnvironment(env) {
     confirmLabel: "Delete environment",
   });
   if (!ok) return;
-  state.environments = state.environments.filter((e) => e !== env);
-  env.rules.forEach((r) => open.delete(r.id));
-  openEnvs.delete(env.id);
+  const live = findEnv(env.id);
+  if (!live) return gone();
+  state.environments = state.environments.filter((e) => e !== live);
+  live.rules.forEach((r) => open.delete(key(live, r)));
+  openEnvs.delete(live.id);
   save(); render();
 }
 
@@ -202,9 +214,9 @@ function setDomain(env, raw) {
 function addRuleTo(env) {
   const rule = { id: newId(), name: "New rule", description: "", status: "Active", pairs: [newPair()] };
   env.rules.unshift(rule);
-  open.add(rule.id);
+  open.add(key(env, rule));
   openEnvs.add(env.id);
-  pending = { id: rule.id, kind: "enter" };
+  pending = { envId: env.id, ruleId: rule.id, kind: "enter" };
   query = "";
   filter = "all";
   document.getElementById("search").value = "";
@@ -277,7 +289,8 @@ async function removeRule(env, rule) {
     confirmLabel: "Delete rule",
   });
   if (!ok) return;
-  const card = cardEl(rule.id);
+  if (!findRule(findEnv(env.id), rule.id)) return gone();
+  const card = cardEl(env.id, rule.id);
   if (card) {
     card.style.overflow = "hidden";
     await play(card, [
@@ -286,8 +299,12 @@ async function removeRule(env, rule) {
       { height: "0px", opacity: 0, transform: "translateX(24px)", marginBottom: "-16px", borderWidth: "0px" },
     ], { duration: 340, fill: "forwards" });
   }
-  env.rules = env.rules.filter((r) => r !== rule);
-  open.delete(rule.id);
+  // The animation takes a moment; look the target up again before changing anything.
+  const liveEnv = findEnv(env.id);
+  const liveRule = findRule(liveEnv, rule.id);
+  if (!liveRule) return gone();
+  liveEnv.rules = liveEnv.rules.filter((r) => r !== liveRule);
+  open.delete(key(liveEnv, liveRule));
   save(); render();
 }
 
@@ -441,10 +458,13 @@ function copyMenu(button, fromEnv, rule) {
   if (first) first.focus();
 }
 
-function copyRuleTo(fromEnv, rule, toEnv) {
-  const copy = cloneRule(rule);
-  copy.name = rule.name;
-  if (toEnv.rules.some((r) => r.name === copy.name)) copy.name = `${rule.name} (copy)`;
+function copyRuleTo(fromEnv, rule, toEnvArg) {
+  const source = findRule(findEnv(fromEnv.id), rule.id);
+  const toEnv = findEnv(toEnvArg.id);
+  if (!source || !toEnv) return void gone();
+  const copy = cloneRule(source);
+  copy.name = source.name;
+  if (toEnv.rules.some((r) => r.name === copy.name)) copy.name = `${source.name} (copy)`;
   toEnv.rules.push(copy);
   openEnvs.add(toEnv.id);
   save(); render();
@@ -492,7 +512,7 @@ function exportAll() {
 }
 
 function ruleCard(env, rule) {
-  const isOpen = open.has(rule.id);
+  const isOpen = open.has(key(env, rule));
   const active = rule.status === "Active";
   return h(
     "section",
@@ -516,8 +536,8 @@ function ruleCard(env, rule) {
         h("button", { type: "button", class: "icon-btn", title: "Duplicate", "aria-label": "Duplicate rule", onclick: () => {
           const copy = cloneRule(rule);
           env.rules.splice(env.rules.indexOf(rule) + 1, 0, copy);
-          open.add(copy.id);
-          pending = { id: copy.id, kind: "enter" };
+          open.add(key(env, copy));
+          pending = { envId: env.id, ruleId: copy.id, kind: "enter" };
           save(); render();
         } }, icon("copy")),
         h("button", {
@@ -525,7 +545,7 @@ function ruleCard(env, rule) {
           "aria-label": "Copy rule to another environment", "aria-haspopup": "menu", disabled: state.environments.length < 2,
           onclick: (e) => copyMenu(e.currentTarget, env, rule),
         }, icon("arrow")),
-        h("button", { type: "button", class: "icon-btn", title: isOpen ? "Collapse" : "Edit", "aria-label": isOpen ? "Collapse rule" : "Edit rule", "aria-expanded": String(isOpen), onclick: () => expand(rule) }, h("span", { class: `chev${isOpen ? " flipped" : ""}` }, icon("down"))),
+        h("button", { type: "button", class: "icon-btn", title: isOpen ? "Collapse" : "Edit", "aria-label": isOpen ? "Collapse rule" : "Edit rule", "aria-expanded": String(isOpen), onclick: () => expand(env, rule) }, h("span", { class: `chev${isOpen ? " flipped" : ""}` }, icon("down"))),
         h("button", { type: "button", class: "icon-btn danger", title: "Delete", "aria-label": "Delete rule", onclick: () => removeRule(env, rule) }, icon("trash"))
       )
     ),
