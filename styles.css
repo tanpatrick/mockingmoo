@@ -250,7 +250,7 @@ body.options { max-width: 1040px; margin: 0 auto; padding: 32px 24px 80px; }
 .format-note.info { color: var(--muted); }
 
 /* ---- popup ---------------------------------------------------------------- */
-body.popup { width: 360px; }
+body.popup { width: 420px; }
 .popup header {
   position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 12px 16px; background: var(--card); border-bottom: 2px solid var(--ink);
@@ -282,7 +282,8 @@ body.popup { width: 360px; }
 .row .sub { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .row .state { font-size: 12px; font-weight: 650; color: var(--soft); }
 .popup .card.none { background: var(--paused); }
-.popup .card .dom { font-family: var(--mono); font-weight: 700; }
+.popup .card .dom { font-family: var(--mono); font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.popup .card > :last-child { flex: none; }
 .popup .list.paused .row { opacity: 0.55; }
 .popup footer { padding: 12px 16px; background: var(--card); border-top: 2px solid var(--ink); }
 .popup footer button { width: 100%; }
