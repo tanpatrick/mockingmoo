@@ -1,7 +1,7 @@
 // Page-world script: patches fetch and XMLHttpRequest and applies matching rules to responses.
 (() => {
-  if (window.__ftMocker) return;
-  window.__ftMocker = true;
+  if (window.__mockingmoo) return;
+  window.__mockingmoo = true;
 
   const TAG = "[Mockingmoo]";
   let config = { enabled: true, rules: [] };
@@ -17,11 +17,11 @@
   setTimeout(markReady, 1500);
 
   window.addEventListener("message", (event) => {
-    if (event.source !== window || !event.data || event.data.source !== "ft-mocker:config") return;
+    if (event.source !== window || !event.data || event.data.source !== "mockingmoo:config") return;
     config = event.data.config;
     markReady();
   });
-  window.postMessage({ source: "ft-mocker:hello" }, "*");
+  window.postMessage({ source: "mockingmoo:hello" }, "*");
 
   // ---- matching -----------------------------------------------------------
 

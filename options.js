@@ -6,7 +6,9 @@ const OPERATORS = [
 ];
 
 const CODE_TEMPLATE = `function modifyResponse({ url, method, requestData, response, responseJSON, statusCode }) {
-  // Return the new response body (string or object).
+  // \`response\` is the real body as a string; \`responseJSON\` is the parsed version, if it was JSON.
+  // Return a string or an object to replace it, or \`undefined\` to leave it alone.
+
   return response;
 }
 `;
@@ -378,7 +380,8 @@ function importRules(text) {
       id: item.id || newId(),
       name: item.name || "Imported rule",
       description: item.description || "",
-      status: item.status === "Active" ? "Active" : "Inactive",
+      // Imported rules always start paused: a shared file must never run code on every site the moment it is loaded.
+      status: "Inactive",
       pairs: item.pairs.map((p) => ({
         id: p.id || newId(),
         source: { key: p.source.key || "Url", operator: p.source.operator || "Contains", value: p.source.value || "" },
@@ -395,7 +398,7 @@ function importRules(text) {
   }
   Store.save({ rules: state.rules });
   render();
-  say(`Imported ${added} new, ${replaced} replaced${skipped ? `, ${skipped} skipped (not Response rules)` : ""}.`);
+  say(`Imported ${added} new, ${replaced} replaced${skipped ? `, ${skipped} skipped (not Response rules)` : ""}. Imported rules start paused; switch on the ones you trust.`);
 }
 
 function exportRules() {

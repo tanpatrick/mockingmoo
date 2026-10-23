@@ -3,7 +3,7 @@ const DEFAULTS = { enabled: true, rules: [] };
 
 const push = () =>
   chrome.storage.local.get(DEFAULTS).then((config) => {
-    window.postMessage({ source: "ft-mocker:config", config }, "*");
+    window.postMessage({ source: "mockingmoo:config", config }, "*");
   });
 
 push();
@@ -13,5 +13,5 @@ chrome.storage.onChanged.addListener((_changes, area) => {
 });
 
 window.addEventListener("message", (event) => {
-  if (event.source === window && event.data && event.data.source === "ft-mocker:hello") push();
+  if (event.source === window && event.data && event.data.source === "mockingmoo:hello") push();
 });
