@@ -283,6 +283,9 @@ body.popup { width: 360px; }
 .row.paused .name { color: var(--soft); }
 .row .sub { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .row .state { font-size: 12px; font-weight: 650; color: var(--soft); }
+.popup .card.none { background: var(--paused); }
+.popup .card .dom { font-family: var(--mono); font-weight: 700; }
+.popup .list.paused .row { opacity: 0.55; }
 .popup footer { padding: 12px 16px; background: var(--card); border-top: 2px solid var(--ink); }
 .popup footer button { width: 100%; }
 .popup .wide { width: 100%; min-height: 44px; }
