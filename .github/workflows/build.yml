@@ -41,10 +41,30 @@ jobs:
         run: |
           mkdir -p dist
           zip -r "dist/mockingmoo-${VERSION}.zip" \
-            manifest.json bridge.js inject.js shared.js \
+            manifest.json environments.js bridge.js inject.js shared.js \
             popup.html popup.js options.html options.js styles.css \
             icons vendor \
             -x "*.DS_Store"
+
+      - name: Check the zip contains every referenced script
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          listing="$(unzip -Z1 "dist/mockingmoo-${VERSION}.zip")"
+          referenced="$(
+            {
+              jq -r '.content_scripts[].js[]' manifest.json
+              grep -ho '<script src="[^"]*\.js"' popup.html options.html | sed 's/^<script src="//; s/"$//'
+            } | sort -u
+          )"
+          status=0
+          for file in $referenced; do
+            if ! printf '%s\n' "$listing" | grep -Fxq -- "$file"; then
+              echo "dist/mockingmoo-${VERSION}.zip is missing $file" >&2
+              status=1
+            fi
+          done
+          exit "$status"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
