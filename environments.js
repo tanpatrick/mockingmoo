@@ -57,7 +57,7 @@ const Env = {
 
   rulesForPage: (config, host) => ({
     enabled: config.enabled,
-    rules: Env.matchingEnvironments(config.environments, host).flatMap((env) => env.rules),
+    rules: Env.matchingEnvironments(config.environments, host).flatMap((env) => (Array.isArray(env.rules) ? env.rules : [])),
   }),
 
   createEnvironment: ({ domain = "", name = "" } = {}) => ({

@@ -337,6 +337,10 @@ html { scrollbar-gutter: stable; }
   background: var(--pink-wash); color: var(--danger); border: 2px solid var(--ink); border-radius: 14px;
 }
 .dialog-art .icon { width: 22px; height: 22px; }
+.dialog-field { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; font-family: var(--display); font-weight: 700; font-size: 14px; }
+.moo-dialog input[type=text] {
+  border: 2px solid var(--ink); font-family: var(--mono); font-size: 14px; font-weight: 400;
+}
 .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 22px; }
 button.danger-fill { background: var(--danger); color: #fff; }
 button.danger-fill:hover { background: #962015; }

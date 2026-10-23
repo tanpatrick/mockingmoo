@@ -120,3 +120,8 @@ test("hostFromUrl", () => {
   assert.equal(Env.hostFromUrl("chrome://extensions"), null);
   assert.equal(Env.hostFromUrl(undefined), null);
 });
+
+test("rulesForPage ignores an environment with no rules array", () => {
+  const config = { enabled: true, environments: [{ id: "x", domain: "localhost", name: "", enabled: true }] };
+  assert.deepEqual(Env.rulesForPage(config, { hostname: "localhost", port: "" }).rules, []);
+});

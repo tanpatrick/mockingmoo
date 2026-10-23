@@ -1,5 +1,5 @@
 const Store = {
-  load: () => chrome.storage.local.get({ enabled: true, rules: [] }),
+  load: () => chrome.storage.local.get({ enabled: true, environments: [] }),
   save: (patch) => chrome.storage.local.set(patch),
 };
 
@@ -95,6 +95,54 @@ function confirmDialog({ title, body, confirmLabel = "Delete", cancelLabel = "Ke
     dialog.showModal();
     cancel.focus(); // safe default: Enter keeps the rule
   });
+}
+
+// Styled text prompt in the confirmDialog family.
+// Resolves { value } (raw input) on confirm, { skipped: true } on skip, null on cancel.
+function promptDialog({ title, body, label, placeholder = "", confirmLabel = "Import here", skipLabel = "Skip, park them" }) {
+  return new Promise((resolve) => {
+    const finish = (result) => {
+      dialog.classList.add("closing");
+      const done = () => { dialog.close(); dialog.remove(); resolve(result); };
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) done();
+      else setTimeout(done, 140);
+    };
+    const input = h("input", {
+      type: "text", id: "moo-prompt-input", placeholder, autocomplete: "off", spellcheck: false,
+      onkeydown: (e) => { if (e.key === "Enter") { e.preventDefault(); finish({ value: input.value }); } },
+    });
+    const dialog = h(
+      "dialog",
+      { class: "moo-dialog", "aria-labelledby": "moo-dialog-title", oncancel: (e) => { e.preventDefault(); finish(null); } },
+      h("div", { class: "dialog-art", "aria-hidden": "true" }, icon("upload")),
+      h("h2", { id: "moo-dialog-title" }, title),
+      body && h("p", {}, body),
+      h("label", { class: "dialog-field", for: "moo-prompt-input" }, label, input),
+      h("div", { class: "dialog-actions" },
+        h("button", { type: "button", onclick: () => finish(null) }, "Cancel"),
+        h("button", { type: "button", onclick: () => finish({ skipped: true }) }, skipLabel),
+        h("button", { type: "button", class: "primary", onclick: () => finish({ value: input.value }) }, confirmLabel))
+    );
+    dialog.addEventListener("click", (e) => { if (e.target === dialog) finish(null); });
+    document.body.append(dialog);
+    dialog.showModal();
+    input.focus();
+  });
+}
+
+// What an environment is called in lists: its domain, else its name.
+function envLabel(env) {
+  if (String(env.domain || "").trim()) return env.domain;
+  if (String(env.name || "").trim()) return env.name;
+  return "Untitled";
+}
+
+// "2 rules · 1 active", with " · parked" for environments that match no site.
+function envSummary(env) {
+  const rules = Array.isArray(env.rules) ? env.rules : [];
+  const active = rules.filter((r) => r.status === "Active").length;
+  const text = `${rules.length} ${rules.length === 1 ? "rule" : "rules"} · ${active} active`;
+  return Env.isParked(env) ? `${text} · parked` : text;
 }
 
 // Segmented control with a highlight pill that slides between options.
