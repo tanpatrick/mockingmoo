@@ -118,7 +118,7 @@ async function render() {
 
   const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
   document.getElementById("root").replaceChildren(
-    matches.length ? matches.map((env) => envBlock(env, enabled)) : noneBlock(host),
+    ...(matches.length ? matches.map((env) => envBlock(env, enabled)) : [noneBlock(host)]),
     h("span", { class: "sub", style: "text-align:center" },
       `${count(environments.length, "environment")} · ${count(total, "rule")} in total`)
   );
