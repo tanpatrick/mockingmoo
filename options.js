@@ -405,6 +405,11 @@ function cloneRule(rule) {
 // ---- copy, import, export -------------------------------------------------
 let closeMenu = null;
 
+// Decodes a URL fragment value; a malformed escape (e.g. "%") falls back to the raw text.
+function safeDecode(text) {
+  try { return decodeURIComponent(text); } catch (e) { return text; }
+}
+
 function copyMenu(button, fromEnv, rule) {
   if (closeMenu) closeMenu();
   const others = state.environments.filter((e) => e !== fromEnv);
@@ -581,7 +586,7 @@ Store.load().then((loaded) => {
   state.environments.forEach((env) => openEnvs.add(env.id));
   // The popup opens options.html#new=<domain> to add a rule to that domain's environment straight away.
   if (location.hash.startsWith("#new=")) {
-    const domain = decodeURIComponent(location.hash.slice(5));
+    const domain = safeDecode(location.hash.slice(5));
     history.replaceState(null, "", location.pathname);
     const env = Env.findByDomain(state.environments, domain) || addEnvironment({ domain, focus: false });
     addRuleTo(env);
