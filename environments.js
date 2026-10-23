@@ -43,7 +43,7 @@ const Env = {
   }),
 
   createEnvironment: ({ domain = "", name = "" } = {}) => ({
-    id: Math.random().toString(16).slice(2, 10),
+    id: Math.random().toString(16).slice(2, 10).padEnd(8, "0"),
     domain: Env.normalizeDomain(domain),
     name,
     enabled: true,

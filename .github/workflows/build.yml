@@ -21,7 +21,7 @@ jobs:
           node-version: 20
 
       - name: Run tests
-        run: node --test test/
+        run: node --test
 
       # The version comes from the repository, so it is untrusted input on pull requests.
       # It is only ever passed to the shell through environment variables, never through ${{ }}.

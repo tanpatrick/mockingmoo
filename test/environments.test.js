@@ -46,6 +46,7 @@ test("rulesForPage sends only matching, enabled, non-parked environments' rules"
 test("createEnvironment, isParked, findByDomain, suggestedDomain", () => {
   const e = Env.createEnvironment({ domain: "Staging.MyApp.com/" });
   assert.match(e.id, /^[0-9a-f]{8}$/);
+  for (let i = 0; i < 50; i++) assert.match(Env.createEnvironment({}).id, /^[0-9a-f]{8}$/);
   assert.deepEqual({ ...e, id: "x" }, { id: "x", domain: "staging.myapp.com", name: "", enabled: true, rules: [] });
   assert.equal(Env.isParked(Env.createEnvironment({})), true);
   assert.equal(Env.findByDomain([e], "staging.myapp.com"), e);
