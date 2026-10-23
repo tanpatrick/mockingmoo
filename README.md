@@ -12,17 +12,29 @@ No account. No cloud. No telemetry. Just a cow and your browser.
 
 ## Screenshots
 
-The toolbar popup shows the herd at a glance, with one switch to rule them all and one per cow:
+The toolbar popup shows the herd for the tab you're on, with one switch to rule them all and one per cow:
 
 <img src="docs/popup.png" alt="Mockingmoo popup showing the master switch and a list of rules" width="320">
 
-The rules page is where the herd is managed: search, filter, import, export, duplicate and send to pasture:
+The rules page is where the herd is managed, one pasture (environment) per domain: search, filter, import, export, duplicate, copy and send to pasture:
 
 <img src="docs/rules.png" alt="Mockingmoo rules page with four rules, three active and one paused" width="720">
 
 Expand a rule to edit its URL match and response. There's a **Prettier** button, because life is too short for badly indented mocks:
 
 <img src="docs/editor.png" alt="A rule expanded to show the URL match and the modifyResponse.js editor" width="720">
+
+## Environments
+
+Every rule lives in an environment, and every environment is fenced to one domain. Click **New environment** on the rules page (or **+ Make `<domain>` an environment** in the popup while standing on a site that doesn't have one yet), type a domain, and the cows in that pasture only ever graze there.
+
+- **One exact domain per environment.** `hello.com` is not `www.hello.com`, so make a second environment if you want both. A domain typed without a port matches that host on any port, so `localhost` covers every dev server you own, while `localhost:3000` matches only that one. Case doesn't matter, and a pasted `https://` or trailing `/` is trimmed for you. Two environments can't claim the same domain.
+- **The match is the page in the tab.** Not the host the request goes to. If the tab shows `staging.myapp.com`, every request that page makes is eligible, whichever API it calls, and so is anything framed inside it. A frame from another site on that page is still mocked by the page's environment. A page on a different site never sees the herd.
+- **Parked means asleep in the barn.** An environment with a blank domain shows the badge **Parked · not applied anywhere** and mocks nothing, ever. Imported files that don't say where they belong arrive this way.
+- **Three switches, all of which must be on.** The master switch (rules page header and popup), the environment's switch (its band, and its card in the popup) and the rule's own switch. If any of them is off, the cow stays put. The popup tells you which story you're in: **Mooing here · N of M rules active** or **Environment paused · nothing is mocked here**.
+- **Same path, different body: Copy to…** Open a rule's tools and pick **Copy to…** to send a copy to another environment. The copy gets fresh ids, arrives paused, and only gets " (copy)" added to its name if the target already has a rule by that name. Handy for `/api/users` returning one thing on `localhost:3000` and something much worse on `staging.myapp.com`.
+
+Each band also has a **+ Rule** button, because adding a cow where it will actually be used is just good husbandry.
 
 ## Install
 
@@ -34,13 +46,14 @@ After editing any extension file, click the reload icon on its card in `chrome:/
 
 ## Quick start: mock your first API response
 
-Five steps to your first moo:
+Six steps to your first moo:
 
-1. Click the toolbar icon, then **Open all rules**.
-2. Click **Import** and choose `examples/sample-rules.json`.
-3. Switch **Static: users list** on. Imported rules always arrive napping, so you have to wake them up.
-4. Check the popup says **Mooing on every tab**. If it says **Napping**, flip the big switch.
-5. Open DevTools on any page and run:
+1. Click the toolbar icon, then **Open all environments**.
+2. Click **Import** and choose `examples/sample-rules.json`. The herd arrives as a parked environment called "Sample herd", which applies to no site at all until you tell it where the pasture is.
+3. Type the domain of the site you'll test on into its band. For the DevTools demo below, that is the domain of whatever page you have open, such as `localhost:3000`.
+4. Switch **Static: users list** on. Imported rules always arrive napping, so you have to wake them up.
+5. Open the popup on that page and check it says **Mooing here**. If it says **Environment paused**, flip the environment's switch. If it says **Napping**, flip the big switch.
+6. In DevTools on that same page, run:
 
    ```js
    const response = await fetch("/api/users");
@@ -59,7 +72,7 @@ Switch the rule off and the real responses come back. The server never knew you 
 
 ## Writing your own mock rules
 
-Click **New rule**. A rule has one or more URL matches, and each match has a URL pattern (step 1, "When the request URL…") and a response (step 2, "…then moo back with").
+Click **+ Rule** on an environment's band (or **+ New rule here** in the popup). A rule has one or more URL matches, and each match has a URL pattern (step 1, "When the request URL…") and a response (step 2, "…then moo back with").
 
 Every response editor has a **Prettier** button that formats the JS, or the JSON for static bodies, in place. Syntax errors show up under the editor and leave your text untouched. Prettier 3.3.3 is bundled in `vendor/prettier/`, so it works offline, on planes, and in basements.
 
@@ -146,9 +159,10 @@ Several active rules can match the same URL. They run in list order, top to bott
 
 ## Import Requestly rules, export your own
 
-- **Import** accepts Requestly exports (an array of `Response` rules). Rules with an `id` already in your herd are replaced, and other rule types are skipped. `examples/sample-rules.json` is a ready-made starter herd.
-- **Imported rules always start paused**, whatever their `status` says in the file. A "Rewrite with JS" rule runs its code inside every page it matches, with that page's cookies and session. So read a shared file before switching its cows on. Trust, but `git diff`.
-- **Export** downloads your rules in the same format, ready to share with teammates or commit alongside the project.
+- **Import** accepts Requestly exports (an array of `Response` rules) and Mockingmoo's own environment files. Rules with an `id` already in your herd are replaced, and other rule types are skipped. `examples/sample-rules.json` is a ready-made starter herd.
+- **A plain Requestly file asks where to graze.** Requestly has no idea what a domain is, so the import prompts for one. **Import here** puts the rules in the environment for that domain (creating it if needed). **Skip, park them** drops them into a parked environment that mocks nothing until you give it a domain. A Mockingmoo file already knows its environments, so it brings them along without asking.
+- **Imported rules always start paused**, whatever their `status` says in the file, and parked environments are a second, independent safety. A "Rewrite with JS" rule runs its code inside every page it matches, with that page's cookies and session. So read a shared file before switching its cows on. Trust, but `git diff`.
+- **Export** downloads your environments, each with its domain, name and rules, ready to share with teammates or commit alongside the project. Each environment's `rules` array is still a valid Requestly import, so nothing stops you handing just that part to a colleague who runs the other tool.
 
 ## Why not Requestly, Mockoon or Postman?
 
@@ -161,7 +175,7 @@ Those are all good tools. Mockingmoo is the small one that lives in your browser
 | Account | None | Optional, needed for sync and teams | None | Required |
 | Open source | Yes, MIT | Yes | Yes, MIT | No |
 | Imports Requestly rules | Yes | Native | No | No |
-| What it covers | Response mocking and rewriting | Also redirects, headers, scripts, HAR recording, sessions | A full mock server: routes, latency, proxying | Mocks tied to Postman collections |
+| What it covers | Response mocking and rewriting, grouped per domain | Also redirects, headers, scripts, HAR recording, sessions | A full mock server: routes, latency, proxying | Mocks tied to Postman collections |
 
 Pick Mockingmoo when you want to mock or override API responses in Chrome with zero setup, keep everything local, and stay free. Pick the others when you need request recording, header rules, team sync, or a mock that non-browser clients can hit.
 
@@ -173,7 +187,8 @@ Even the best cow has its limits.
 - For XHR, the real request is always sent and only the response is swapped. **Skip the network** applies to `fetch` only.
 - XHR responses of type `arraybuffer` or `blob` pass through untouched. The cow does not do binary.
 - The extension runs on all sites and in all frames, so it patches `fetch` and `XMLHttpRequest` on every page you open, banking and webmail included. Flip it to **Napping** from the popup when you aren't mocking.
-- Your rules are handed to the page so they can be applied there, which means any script on any site you visit could read them: names, URL patterns, mock bodies and rewrite code. Don't put secrets in rules, and avoid patterns that reveal internal API paths if that matters to you.
+- The rules of the environment that matches the page are handed to that page so they can be applied there, which means any script on that page could read them: names, URL patterns, mock bodies and rewrite code. Pages that match no environment get nothing. Don't put secrets in rules, and avoid patterns that reveal internal API paths if that matters to you.
+- Permissions: `storage` and `activeTab`. The latter only lets the popup see the address of the tab you clicked the icon on.
 - It can't mock requests made before the page's scripts run, such as the initial HTML document. The cow has to be in the field before the request leaves the barn.
 
 ## Logo and icons

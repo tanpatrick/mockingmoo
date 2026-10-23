@@ -125,3 +125,13 @@ test("rulesForPage ignores an environment with no rules array", () => {
   const config = { enabled: true, environments: [{ id: "x", domain: "localhost", name: "", enabled: true }] };
   assert.deepEqual(Env.rulesForPage(config, { hostname: "localhost", port: "" }).rules, []);
 });
+
+test("the shipped sample file is a Mockingmoo file with one parked environment", () => {
+  const text = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "examples", "sample-rules.json"), "utf8");
+  const parsed = Env.parseImport(text);
+  assert.equal(parsed.kind, "mockingmoo");
+  assert.equal(parsed.environments.length, 1);
+  assert.equal(parsed.environments[0].domain, "");
+  assert.equal(parsed.environments[0].name, "Sample herd");
+  assert.equal(parsed.environments[0].rules.length, 4);
+});
