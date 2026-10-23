@@ -4,3 +4,6 @@
 
 # Build output
 dist/
+
+# Brainstorm mockups
+.superpowers/
