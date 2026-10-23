@@ -4,9 +4,9 @@
 
 **The API isn't ready. The cow is.**
 
-Mockingmoo is a small Chrome extension that intercepts `fetch` and `XMLHttpRequest` calls by URL and moos back whatever response you tell it to. Build the frontend before the backend exists, reproduce that 500 the on-call engineer swears never happens, or feed your UI the ugliest data you can imagine, all without touching a single server.
+Mockingmoo is a free, open-source Chrome extension for API mocking. It intercepts `fetch` and `XMLHttpRequest` requests by URL and lets you mock, stub or rewrite the response right in the browser, with no proxy and no change to your app's API URL. It imports Requestly "Response" rules, so it works as a drop-in Requestly alternative for response mocking.
 
-It works with any HTTP API (REST, GraphQL, RPC, that one endpoint nobody will admit to writing) and imports Requestly "Response" rule exports, so your old rules can join the herd.
+Build the frontend before the backend exists, reproduce that 500 the on-call engineer swears never happens, or feed your UI the ugliest data you can imagine, all without touching a single server. Works with any HTTP API: REST, GraphQL, RPC, and that one endpoint nobody will admit to writing.
 
 No account. No cloud. No telemetry. Just a cow and your browser.
 
@@ -32,7 +32,7 @@ Expand a rule to edit its URL match and response. There's a **Prettier** button,
 
 After editing any extension file, click the reload icon on its card in `chrome://extensions`, then reload the page you're testing. Cows do not hot-reload.
 
-## Quick start
+## Quick start: mock your first API response
 
 Five steps to your first moo:
 
@@ -57,13 +57,13 @@ Five steps to your first moo:
 
 Switch the rule off and the real responses come back. The server never knew you were gone.
 
-## Writing your own rules
+## Writing your own mock rules
 
 Click **New rule**. A rule has one or more URL matches, and each match has a URL pattern (step 1, "When the request URL…") and a response (step 2, "…then moo back with").
 
 Every response editor has a **Prettier** button that formats the JS, or the JSON for static bodies, in place. Syntax errors show up under the editor and leave your text untouched. Prettier 3.3.3 is bundled in `vendor/prettier/`, so it works offline, on planes, and in basements.
 
-### URL patterns
+### URL patterns: which requests to intercept
 
 | Option | Matches when |
 | --- | --- |
@@ -74,7 +74,7 @@ Every response editor has a **Prettier** button that formats the JS, or the JSON
 
 A rule with a blank pattern matches nothing. This is deliberate: a brand-new cow should not be allowed to hijack every request on the internet before you've finished typing.
 
-### Response type 1: static response
+### Response type 1: static mock response
 
 Returns a fixed body and status code. Perfect for faking disasters:
 
@@ -90,7 +90,7 @@ With **Skip the network** ticked (fetch only), the real request is never sent. T
 
 A static body is returned as plain text and is never executed. If you paste code into one, Mockingmoo will politely suggest you meant the other type.
 
-### Response type 2: rewrite with JS
+### Response type 2: modify the real response with JS
 
 For when you want the real response, just… different. Define a `modifyResponse` function. It receives the real response and returns the new body, as a string or an object:
 
@@ -117,7 +117,7 @@ function modifyResponse({ responseJSON }) {
 
 Return `undefined` to leave the response alone. If the function throws, the error is logged and the real response is used, so a typo in a rule won't take the page down with it.
 
-### Mocking one call among many
+### Mocking one GraphQL operation among many
 
 GraphQL and batched RPC endpoints love to funnel every operation through one URL. Look at `requestData` and only replace the call you care about:
 
@@ -144,11 +144,26 @@ function modifyResponse({ requestData, response }) {
 
 Several active rules can match the same URL. They run in list order, top to bottom, so each cow can handle its own operation without stepping on hooves.
 
-## Import and export
+## Import Requestly rules, export your own
 
 - **Import** accepts Requestly exports (an array of `Response` rules). Rules with an `id` already in your herd are replaced, and other rule types are skipped. `examples/sample-rules.json` is a ready-made starter herd.
 - **Imported rules always start paused**, whatever their `status` says in the file. A "Rewrite with JS" rule runs its code inside every page it matches, with that page's cookies and session. So read a shared file before switching its cows on. Trust, but `git diff`.
 - **Export** downloads your rules in the same format, ready to share with teammates or commit alongside the project.
+
+## Why not Requestly, Mockoon or Postman?
+
+Those are all good tools. Mockingmoo is the small one that lives in your browser and does one job.
+
+| | Mockingmoo | Requestly | Mockoon | Postman mock servers |
+| --- | --- | --- | --- | --- |
+| Where it runs | Inside the page, as a Chrome extension | Browser extension and desktop app | Local mock server (desktop app or CLI) | Postman's cloud |
+| Change your app's API URL? | No | No | Yes, point your app at the mock server | Yes, point your app at the mock URL |
+| Account | None | Optional, needed for sync and teams | None | Required |
+| Open source | Yes, MIT | Yes | Yes, MIT | No |
+| Imports Requestly rules | Yes | Native | No | No |
+| What it covers | Response mocking and rewriting | Also redirects, headers, scripts, HAR recording, sessions | A full mock server: routes, latency, proxying | Mocks tied to Postman collections |
+
+Pick Mockingmoo when you want to mock or override API responses in Chrome with zero setup, keep everything local, and stay free. Pick the others when you need request recording, header rules, team sync, or a mock that non-browser clients can hit.
 
 ## Limitations
 
