@@ -14,14 +14,36 @@ const mergeRules = (env, rules) => {
   return { added, replaced };
 };
 
+// A bare hostname (dot-separated labels) with an optional numeric port.
+const DOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:\d{1,5})?$/;
+
+// Returns the normalised domain, "" for blank input, or null when the input is not a plain hostname[:port].
+const normalizeDomain = (input) => {
+  let value = String(input == null ? "" : input)
+    .trim()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//i, "")
+    .replace(/[/?#].*$/, "")
+    .toLowerCase();
+  if (value === "") return "";
+  if (/[^\x00-\x7f]/.test(value)) {
+    // Internationalised names: let the URL parser produce the punycode form.
+    const m = /^(.*?)(:\d{1,5})?$/.exec(value);
+    try {
+      value = new URL(`http://${m[1]}`).hostname + (m[2] || "");
+    } catch {
+      return null;
+    }
+  }
+  return DOMAIN_RE.test(value) ? value : null;
+};
+
 const Env = {
-  normalizeDomain: (input) =>
-    String(input || "")
-      .replace(/\s+/g, "")
-      .toLowerCase()
-      .replace(/^[a-z][a-z0-9+.-]*:\/\//, "")
-      .replace(/[/?#].*$/, "")
-      .replace(/:(80|443)$/, ""),
+  normalizeDomain,
+
+  isValidDomain: (input) => {
+    const domain = normalizeDomain(input);
+    return domain !== null && domain !== "";
+  },
 
   // The top-level page's host. Inside a frame, the last ancestor origin is the top page.
   pageHost: (loc) => {
@@ -39,17 +61,21 @@ const Env = {
   },
 
   domainMatches: (domain, host) => {
-    if (!domain) return false;
+    if (!domain || typeof domain !== "string") return false;
     const i = domain.indexOf(":");
     if (i === -1) return domain === host.hostname;
-    return domain.slice(0, i) === host.hostname && domain.slice(i + 1) === host.port;
+    if (domain.slice(0, i) !== host.hostname) return false;
+    const port = domain.slice(i + 1);
+    // The browser reports a default port as "", so an explicit :80 or :443 also matches that.
+    return host.port === port || ((port === "443" || port === "80") && host.port === "");
   },
 
   isParked: (env) => env.domain === "",
 
   matchingEnvironments: (environments, host, opts = {}) =>
-    environments.filter(
+    (Array.isArray(environments) ? environments : []).filter(
       (env) =>
+        env && typeof env === "object" &&
         !Env.isParked(env) &&
         (opts.includeDisabled || env.enabled !== false) &&
         Env.domainMatches(env.domain, host)
@@ -60,16 +86,16 @@ const Env = {
     rules: Env.matchingEnvironments(config.environments, host).flatMap((env) => (Array.isArray(env.rules) ? env.rules : [])),
   }),
 
-  createEnvironment: ({ domain = "", name = "" } = {}) => ({
-    id: newId(),
-    domain: Env.normalizeDomain(domain),
-    name,
-    enabled: true,
-    rules: [],
-  }),
+  // Throws on an invalid domain: callers validate first, and null is never stored.
+  createEnvironment: ({ domain = "", name = "" } = {}) => {
+    const normalized = normalizeDomain(domain);
+    if (normalized === null) throw new Error(`"${domain}" is not a valid domain`);
+    return { id: newId(), domain: normalized, name, enabled: true, rules: [] };
+  },
 
   findByDomain: (environments, domain) => {
-    const wanted = Env.normalizeDomain(domain);
+    const wanted = normalizeDomain(domain);
+    if (!wanted) return undefined;
     return environments.find((env) => !Env.isParked(env) && env.domain === wanted);
   },
 
@@ -112,8 +138,10 @@ const Env = {
       const environments = parsed.environments.map((env) => {
         const result = normalizeAll(Array.isArray(env && env.rules) ? env.rules : []);
         skipped += result.skipped;
+        const domain = normalizeDomain(env && env.domain);
+        if (domain === null) throw new Error(`"${env.domain}" is not a valid domain`);
         return {
-          domain: Env.normalizeDomain(env && env.domain),
+          domain,
           name: (env && env.name) || "",
           enabled: !env || env.enabled !== false,
           rules: result.rules,
@@ -136,11 +164,12 @@ const Env = {
       if (rules.length) summary.targets.push(label(env));
     };
     if (parsed.kind === "requestly") {
-      const domain = Env.normalizeDomain(opts.domain);
+      const domain = normalizeDomain(opts.domain);
+      if (domain === null) throw new Error(`"${opts.domain}" is not a valid domain`);
       let target;
       if (domain) {
         target = Env.findByDomain(next, domain);
-        if (!target) { target = Env.createEnvironment({ domain }); next.unshift(target); }
+        if (!target) { target = Env.createEnvironment({ domain }); next.push(target); }
       } else {
         target = Env.createEnvironment({ name: opts.filename });
         next.push(target);
