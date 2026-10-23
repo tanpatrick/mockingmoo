@@ -32,7 +32,7 @@ After editing any extension file, click the reload icon on its card in `chrome:/
 
 1. Click the toolbar icon, then **Manage rules**.
 2. Click **Import JSON** and choose `examples/sample-rules.json`.
-3. Switch **Static: users list** on. The samples import as `Inactive`.
+3. Switch **Static: users list** on. Imported rules always start paused.
 4. Make sure the popup says **Mockingmoo is on**.
 5. Open DevTools on any page and run:
 
@@ -116,6 +116,7 @@ Several active rules can match the same URL. They are applied in list order, so 
 ## Import and export
 
 - **Import JSON** accepts Requestly exports (an array of `Response` rules). Rules with an `id` already present are replaced, and other rule types are skipped. `examples/sample-rules.json` is a ready-made set.
+- Imported rules always start paused, whatever their `status` in the file. A "Rewrite with JS" rule runs its code inside every page it matches, with that page's cookies and session, so read a shared file before switching its rules on.
 - **Export JSON** downloads your rules in the same format, so they can be shared or committed.
 
 ## Limitations
@@ -123,9 +124,14 @@ Several active rules can match the same URL. They are applied in list order, so 
 - JS rules use `new Function`, so a page whose CSP blocks `unsafe-eval` will log an error. Static rules still work.
 - For XHR, the real request is still sent and only the response is replaced. "Skip network" applies to `fetch` only.
 - XHR responses of type `arraybuffer` or `blob` are not modified.
-- The extension runs on all sites. Switch it off from the popup when you aren't mocking.
+- The extension runs on all sites and in all frames, so it patches `fetch` and `XMLHttpRequest` on every page you open, including banking and webmail. Switch it off from the popup when you aren't mocking.
+- Your rules are handed to the page so they can be applied there, which means any script on any site you visit can read them: names, URL patterns, mock bodies and rewrite code. Don't put secrets in rules, and avoid patterns that reveal internal API paths if that matters to you.
 - It can't mock requests made before the page's scripts run, such as the initial HTML document.
 
 ## Logo and icons
 
 The logo is "Cheeky Moo". `icons/logo.svg` is the full-detail version and `icons/logo-small.svg` is a simplified, thicker-stroke version for small sizes. The braces in both are drawn as paths, so they don't need a font. The extension uses `icon-16/32/48.png` (rendered from the small version) and `icon-128.png` (from the full version). If you change the SVGs, re-render those PNGs at the same sizes.
+
+## License
+
+[MIT](LICENSE). Prettier is bundled under its own [MIT license](vendor/prettier/LICENSE).
