@@ -108,11 +108,18 @@ function confirmDialog({ title, body, confirmLabel = "Delete", cancelLabel = "Ke
 
 // Styled text prompt in the confirmDialog family.
 // Resolves { value } (raw input) on confirm, { skipped: true } on skip, null on cancel.
-function promptDialog({ title, body, label, placeholder = "", confirmLabel = "Import here", skipLabel = "Skip, park them" }) {
+// `validate(value)` returns an error message to show in the dialog and keep it open, or "" to accept.
+function promptDialog({ title, body, label, placeholder = "", confirmLabel = "Import here", skipLabel = "Skip, park them", validate }) {
   return openDialog((finish) => {
+    const problem = h("span", { class: "hint dialog-problem", role: "alert" });
+    const confirm = () => {
+      const error = validate ? validate(input.value) : "";
+      problem.textContent = error;
+      if (!error) finish({ value: input.value });
+    };
     const input = h("input", {
       type: "text", id: "moo-prompt-input", placeholder, autocomplete: "off", spellcheck: false,
-      onkeydown: (e) => { if (e.key === "Enter") { e.preventDefault(); finish({ value: input.value }); } },
+      onkeydown: (e) => { if (e.key === "Enter") { e.preventDefault(); confirm(); } },
     });
     const dialog = h(
       "dialog",
@@ -121,10 +128,11 @@ function promptDialog({ title, body, label, placeholder = "", confirmLabel = "Im
       h("h2", { id: "moo-dialog-title" }, title),
       body && h("p", {}, body),
       h("label", { class: "dialog-field", for: "moo-prompt-input" }, label, input),
+      problem,
       h("div", { class: "dialog-actions" },
         h("button", { type: "button", onclick: () => finish(null) }, "Cancel"),
         h("button", { type: "button", onclick: () => finish({ skipped: true }) }, skipLabel),
-        h("button", { type: "button", class: "primary", onclick: () => finish({ value: input.value }) }, confirmLabel))
+        h("button", { type: "button", class: "primary", onclick: confirm }, confirmLabel))
     );
     return { dialog, focus: input };
   }, null);

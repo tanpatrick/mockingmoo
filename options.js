@@ -137,12 +137,14 @@ async function expand(rule) {
 
 // ---- environments ---------------------------------------------------------
 const DUPLICATE_HINT = "That domain already has an environment";
+const INVALID_HINT = "That doesn't look like a domain. Try something like staging.myapp.com or localhost:3000.";
 const PARKED_HINT = "Add a domain. Until then this environment is parked and mocks nothing.";
 
 const envEl = (id) => document.querySelector(`.env[data-env-id="${id}"]`);
 
 function addEnvironment({ domain = "", name = "", focus = true } = {}) {
-  const env = Env.createEnvironment({ domain, name });
+  // A domain that fails validation (e.g. an IPv6 host from the popup) opens a blank band to fill in, never a stored null.
+  const env = Env.createEnvironment({ domain: Env.isValidDomain(domain) ? domain : "", name });
   state.environments.unshift(env);
   openEnvs.add(env.id);
   query = "";
@@ -172,12 +174,17 @@ async function removeEnvironment(env) {
   save(); render();
 }
 
-// Normalises and applies a typed domain. Returns false (and reverts the field) when another environment owns it.
+// Normalises and applies a typed domain. Returns false (and reverts the field) when it is invalid or another environment owns it.
 function setDomain(env, raw) {
   const band = envEl(env.id);
   const input = band && band.querySelector("input.domain");
   const hint = band && band.querySelector(".domain-hint");
   const next = Env.normalizeDomain(raw);
+  if (next === null) {
+    if (input) input.value = env.domain;
+    if (hint) hint.textContent = INVALID_HINT;
+    return false;
+  }
   if (next && next !== env.domain && Env.findByDomain(state.environments, next)) {
     if (input) input.value = env.domain;
     if (hint) hint.textContent = DUPLICATE_HINT;
@@ -455,6 +462,7 @@ async function importFile(file) {
         body: "Enter the domain these rules apply to. Skip to park them until you decide.",
         label: "Domain",
         placeholder: "staging.myapp.com",
+        validate: (value) => (value.trim() === "" || Env.isValidDomain(value) ? "" : INVALID_HINT),
       });
       if (answer === null) return say("Import cancelled.");
       domain = answer.value || "";
