@@ -36,6 +36,7 @@ const ICONS = {
   trash: "M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3",
   x: "M6 6l12 12M18 6L6 18",
   list: "M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 9h18M9 9v11",
+  arrow: "M5 12h14M13 6l6 6-6 6",
   bolt: "M13 2L4 14h7l-1 8 9-12h-7z",
 };
 
@@ -69,15 +70,27 @@ function ruleKind(rule) {
   return types.size === 1 && types.has("static") ? "static" : "code";
 }
 
-// Styled replacement for window.confirm(). Resolves true when the user confirms.
-function confirmDialog({ title, body, confirmLabel = "Delete", cancelLabel = "Keep it" }) {
+// Shared shell for the modal dialogs: build(finish) returns { dialog, focus }.
+// Handles the closing animation, backdrop click (resolves with `onBackdrop`), mounting and focus.
+function openDialog(build, onBackdrop) {
   return new Promise((resolve) => {
-    const finish = (ok) => {
+    const finish = (result) => {
       dialog.classList.add("closing");
-      const done = () => { dialog.close(); dialog.remove(); resolve(ok); };
+      const done = () => { dialog.close(); dialog.remove(); resolve(result); };
       if (matchMedia("(prefers-reduced-motion: reduce)").matches) done();
       else setTimeout(done, 140);
     };
+    const { dialog, focus } = build(finish);
+    dialog.addEventListener("click", (e) => { if (e.target === dialog) finish(onBackdrop); });
+    document.body.append(dialog);
+    dialog.showModal();
+    focus.focus();
+  });
+}
+
+// Styled replacement for window.confirm(). Resolves true when the user confirms.
+function confirmDialog({ title, body, confirmLabel = "Delete", cancelLabel = "Keep it" }) {
+  return openDialog((finish) => {
     const cancel = h("button", { type: "button", onclick: () => finish(false) }, cancelLabel);
     const dialog = h(
       "dialog",
@@ -89,24 +102,14 @@ function confirmDialog({ title, body, confirmLabel = "Delete", cancelLabel = "Ke
         cancel,
         h("button", { type: "button", class: "primary danger-fill", onclick: () => finish(true) }, confirmLabel))
     );
-    // Clicking the dimmed backdrop counts as cancel.
-    dialog.addEventListener("click", (e) => { if (e.target === dialog) finish(false); });
-    document.body.append(dialog);
-    dialog.showModal();
-    cancel.focus(); // safe default: Enter keeps the rule
-  });
+    return { dialog, focus: cancel }; // safe default: Enter keeps the rule
+  }, false);
 }
 
 // Styled text prompt in the confirmDialog family.
 // Resolves { value } (raw input) on confirm, { skipped: true } on skip, null on cancel.
 function promptDialog({ title, body, label, placeholder = "", confirmLabel = "Import here", skipLabel = "Skip, park them" }) {
-  return new Promise((resolve) => {
-    const finish = (result) => {
-      dialog.classList.add("closing");
-      const done = () => { dialog.close(); dialog.remove(); resolve(result); };
-      if (matchMedia("(prefers-reduced-motion: reduce)").matches) done();
-      else setTimeout(done, 140);
-    };
+  return openDialog((finish) => {
     const input = h("input", {
       type: "text", id: "moo-prompt-input", placeholder, autocomplete: "off", spellcheck: false,
       onkeydown: (e) => { if (e.key === "Enter") { e.preventDefault(); finish({ value: input.value }); } },
@@ -114,7 +117,7 @@ function promptDialog({ title, body, label, placeholder = "", confirmLabel = "Im
     const dialog = h(
       "dialog",
       { class: "moo-dialog", "aria-labelledby": "moo-dialog-title", oncancel: (e) => { e.preventDefault(); finish(null); } },
-      h("div", { class: "dialog-art", "aria-hidden": "true" }, icon("upload")),
+      h("div", { class: "dialog-art calm", "aria-hidden": "true" }, icon("upload")),
       h("h2", { id: "moo-dialog-title" }, title),
       body && h("p", {}, body),
       h("label", { class: "dialog-field", for: "moo-prompt-input" }, label, input),
@@ -123,11 +126,8 @@ function promptDialog({ title, body, label, placeholder = "", confirmLabel = "Im
         h("button", { type: "button", onclick: () => finish({ skipped: true }) }, skipLabel),
         h("button", { type: "button", class: "primary", onclick: () => finish({ value: input.value }) }, confirmLabel))
     );
-    dialog.addEventListener("click", (e) => { if (e.target === dialog) finish(null); });
-    document.body.append(dialog);
-    dialog.showModal();
-    input.focus();
-  });
+    return { dialog, focus: input };
+  }, null);
 }
 
 // What an environment is called in lists: its domain, else its name.

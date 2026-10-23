@@ -397,8 +397,85 @@ function cloneRule(rule) {
   const copy = JSON.parse(JSON.stringify(rule));
   copy.id = newId();
   copy.name = `${rule.name} (copy)`;
+  copy.status = "Inactive";
   copy.pairs.forEach((p) => (p.id = newId()));
   return copy;
+}
+
+// ---- copy, import, export -------------------------------------------------
+let closeMenu = null;
+
+function copyMenu(button, fromEnv, rule) {
+  if (closeMenu) closeMenu();
+  const others = state.environments.filter((e) => e !== fromEnv);
+  const menu = h("div", { class: "menu", role: "menu" },
+    others.map((to) => h("button", { type: "button", role: "menuitem", onclick: () => { close(); copyRuleTo(fromEnv, rule, to); } }, envLabel(to))));
+  const onKey = (e) => { if (e.key === "Escape") { close(); button.focus(); } };
+  const onDown = (e) => { if (!menu.contains(e.target) && !button.contains(e.target)) close(); };
+  function close() {
+    menu.remove();
+    document.removeEventListener("keydown", onKey);
+    document.removeEventListener("mousedown", onDown);
+    closeMenu = null;
+  }
+  closeMenu = close;
+  document.body.append(menu);
+  const box = button.getBoundingClientRect();
+  menu.style.top = `${box.bottom + 6}px`;
+  menu.style.left = `${Math.max(8, Math.min(box.left, innerWidth - menu.offsetWidth - 8))}px`;
+  document.addEventListener("keydown", onKey);
+  document.addEventListener("mousedown", onDown);
+  const first = menu.querySelector("button");
+  if (first) first.focus();
+}
+
+function copyRuleTo(fromEnv, rule, toEnv) {
+  const copy = cloneRule(rule);
+  copy.name = rule.name;
+  if (toEnv.rules.some((r) => r.name === copy.name)) copy.name = `${rule.name} (copy)`;
+  toEnv.rules.push(copy);
+  openEnvs.add(toEnv.id);
+  save(); render();
+  say(`Copied “${copy.name}” to ${envLabel(toEnv)}, paused.`);
+  return copy;
+}
+
+async function importFile(file) {
+  try {
+    const parsed = Env.parseImport(await file.text());
+    let domain = "";
+    if (parsed.kind === "requestly") {
+      const answer = await promptDialog({
+        title: "Where does this herd graze?",
+        body: "Enter the domain these rules apply to. Skip to park them until you decide.",
+        label: "Domain",
+        placeholder: "staging.myapp.com",
+      });
+      if (answer === null) return say("Import cancelled.");
+      domain = answer.value || "";
+    }
+    const { environments, summary } = Env.importIntoEnvironments(state.environments, parsed, { domain, filename: file.name });
+    state.environments = environments;
+    // Open every band that received rules (targets are domains, or names for parked bands).
+    environments.forEach((env) => {
+      if (summary.targets.includes(Env.isParked(env) ? env.name : env.domain)) openEnvs.add(env.id);
+    });
+    save(); render();
+    const { added, replaced, skipped, targets } = summary;
+    say(`Imported ${added} new, ${replaced} replaced into ${targets.join(", ")}${skipped ? `, ${skipped} skipped (not Response rules)` : ""}. All imported rules start paused.`);
+  } catch (err) {
+    say(`Import failed: ${err.message}`);
+  }
+}
+
+function exportAll() {
+  const blob = new Blob([JSON.stringify(Env.buildExport(state.environments), null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = h("a", { href: url, download: "mockingmoo-rules.json" });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function ruleCard(env, rule) {
@@ -430,6 +507,11 @@ function ruleCard(env, rule) {
           pending = { id: copy.id, kind: "enter" };
           save(); render();
         } }, icon("copy")),
+        h("button", {
+          type: "button", class: "icon-btn", title: state.environments.length > 1 ? "Copy to…" : "Only one environment",
+          "aria-label": "Copy rule to another environment", "aria-haspopup": "menu", disabled: state.environments.length < 2,
+          onclick: (e) => copyMenu(e.currentTarget, env, rule),
+        }, icon("arrow")),
         h("button", { type: "button", class: "icon-btn", title: isOpen ? "Collapse" : "Edit", "aria-label": isOpen ? "Collapse rule" : "Edit rule", "aria-expanded": String(isOpen), onclick: () => expand(rule) }, h("span", { class: `chev${isOpen ? " flipped" : ""}` }, icon("down"))),
         h("button", { type: "button", class: "icon-btn danger", title: "Delete", "aria-label": "Delete rule", onclick: () => removeRule(env, rule) }, icon("trash"))
       )
@@ -486,15 +568,24 @@ function render() {
 document.getElementById("add-env").addEventListener("click", () => addEnvironment({}));
 document.getElementById("search-icon").replaceWith(icon("search"));
 document.getElementById("search").addEventListener("input", (e) => { query = e.target.value.trim().toLowerCase(); settle = true; render(); });
-// Import and export arrive in the next step.
-document.getElementById("export").addEventListener("click", () => say("Coming in the next step"));
-document.getElementById("import").addEventListener("click", () => say("Coming in the next step"));
+document.getElementById("export").addEventListener("click", exportAll);
+document.getElementById("import").addEventListener("click", () => document.getElementById("file").click());
+document.getElementById("file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (file) await importFile(file);
+});
 
 Store.load().then((loaded) => {
   state = loaded;
   state.environments.forEach((env) => openEnvs.add(env.id));
-  // The popup opens options.html#new to start an environment straight away.
-  if (location.hash === "#new") {
+  // The popup opens options.html#new=<domain> to add a rule to that domain's environment straight away.
+  if (location.hash.startsWith("#new=")) {
+    const domain = decodeURIComponent(location.hash.slice(5));
+    history.replaceState(null, "", location.pathname);
+    const env = Env.findByDomain(state.environments, domain) || addEnvironment({ domain, focus: false });
+    addRuleTo(env);
+  } else if (location.hash === "#new") {
     history.replaceState(null, "", location.pathname);
     addEnvironment({});
   } else {
