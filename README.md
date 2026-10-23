@@ -14,11 +14,11 @@ No account. No cloud. No telemetry. Just a cow and your browser.
 
 The toolbar popup shows the herd for the tab you're on, with one switch to rule them all and one per cow:
 
-<img src="docs/popup.png" alt="Mockingmoo popup showing the master switch and a list of rules" width="320">
+<img src="docs/popup.png" alt="Mockingmoo popup on a localhost:3000 tab reading Mooing here, 3 of 4 rules active" width="320">
 
 The rules page is where the herd is managed, one pasture (environment) per domain: search, filter, import, export, duplicate, copy and send to pasture:
 
-<img src="docs/rules.png" alt="Mockingmoo rules page with four rules, three active and one paused" width="720">
+<img src="docs/rules.png" alt="Mockingmoo rules page with three environments: localhost:3000 with four rules, staging.myapp.com with one, and myapp.com switched off" width="720">
 
 Expand a rule to edit its URL match and response. There's a **Prettier** button, because life is too short for badly indented mocks:
 
@@ -30,7 +30,7 @@ Every rule lives in an environment, and every environment is fenced to one domai
 
 - **One exact domain per environment.** `hello.com` is not `www.hello.com`, so make a second environment if you want both. A domain typed without a port matches that host on any port, so `localhost` covers every dev server you own, while `localhost:3000` matches only that one. Case doesn't matter, and a pasted `https://` or trailing `/` is trimmed for you. Two environments can't claim the same domain.
 - **The match is the page in the tab.** Not the host the request goes to. If the tab shows `staging.myapp.com`, every request that page makes is eligible, whichever API it calls, and so is anything framed inside it. A frame from another site on that page is still mocked by the page's environment. A page on a different site never sees the herd.
-- **Parked means asleep in the barn.** An environment with a blank domain shows the badge **Parked · not applied anywhere** and mocks nothing, ever. Imported files that don't say where they belong arrive this way.
+- **Parked means asleep in the barn.** An environment with a blank domain shows the badge **Parked · not applied anywhere** and mocks nothing, ever. A plain Requestly import arrives this way when you skip the domain prompt, and so does any environment that is parked inside a Mockingmoo file.
 - **Three switches, all of which must be on.** The master switch (rules page header and popup), the environment's switch (its band, and its card in the popup) and the rule's own switch. If any of them is off, the cow stays put. The popup tells you which story you're in: **Mooing here · N of M rules active** or **Environment paused · nothing is mocked here**.
 - **Same path, different body: Copy to…** Open a rule's tools and pick **Copy to…** to send a copy to another environment. The copy gets fresh ids, arrives paused, and only gets " (copy)" added to its name if the target already has a rule by that name. Handy for `/api/users` returning one thing on `localhost:3000` and something much worse on `staging.myapp.com`.
 
