@@ -54,3 +54,64 @@ test("createEnvironment, isParked, findByDomain, suggestedDomain", () => {
   assert.equal(Env.suggestedDomain({ hostname: "localhost", port: "3000" }), "localhost:3000");
   assert.equal(Env.suggestedDomain({ hostname: "staging.myapp.com", port: "" }), "staging.myapp.com");
 });
+
+const requestlyRule = (id, status = "Active") => ({ id, name: id, ruleType: "Response", status,
+  pairs: [{ id: id + "p", source: { key: "Url", operator: "Contains", value: "/api/" + id },
+            response: { type: "static", value: "{}", statusCode: "200", serveWithoutRequest: true } }] });
+
+test("normalizeRule forces Inactive and rejects non-Response items", () => {
+  assert.equal(Env.normalizeRule(requestlyRule("x", "Active")).status, "Inactive");
+  assert.equal(Env.normalizeRule({ ruleType: "Redirect", pairs: [] }), null);
+  assert.equal(Env.normalizeRule(null), null);
+});
+
+test("parseImport detects Requestly arrays and Mockingmoo files", () => {
+  const r = Env.parseImport(JSON.stringify([requestlyRule("a"), { ruleType: "Headers", pairs: [] }]));
+  assert.equal(r.kind, "requestly"); assert.equal(r.rules.length, 1); assert.equal(r.skipped, 1);
+  const m = Env.parseImport(JSON.stringify({ mockingmoo: 1, environments: [{ domain: "Local", name: "", enabled: false, rules: [requestlyRule("b")] }] }));
+  assert.equal(m.kind, "mockingmoo"); assert.equal(m.environments[0].domain, "local");
+  assert.throws(() => Env.parseImport("{nope"));
+});
+
+test("importIntoEnvironments: requestly file into a domain, or parked when skipped", () => {
+  const parsed = Env.parseImport(JSON.stringify([requestlyRule("a")]));
+  const withDomain = Env.importIntoEnvironments([], parsed, { domain: "staging.myapp.com", filename: "rules.json" });
+  assert.equal(withDomain.environments[0].domain, "staging.myapp.com");
+  assert.deepEqual(withDomain.summary, { added: 1, replaced: 0, skipped: 0, targets: ["staging.myapp.com"] });
+  const parked = Env.importIntoEnvironments([], parsed, { domain: "", filename: "rules.json" });
+  assert.equal(Env.isParked(parked.environments[0]), true);
+  assert.equal(parked.environments[0].name, "rules.json");
+  assert.deepEqual(parked.summary.targets, ["rules.json"]);
+});
+
+test("importIntoEnvironments: mockingmoo file merges by domain and never duplicates a domain", () => {
+  const existing = [{ id: "e1", domain: "staging.myapp.com", name: "", enabled: true, rules: [Env.normalizeRule(requestlyRule("a")), Env.normalizeRule(requestlyRule("b"))] }];
+  const file = { mockingmoo: 1, environments: [
+    { domain: "staging.myapp.com", name: "", enabled: false, rules: [requestlyRule("b"), requestlyRule("c")] },
+    { domain: "", name: "", enabled: true, rules: [requestlyRule("d")] },
+  ] };
+  const out = Env.importIntoEnvironments(existing, Env.parseImport(JSON.stringify(file)), { filename: "herd.json" });
+  assert.equal(out.environments.length, 2);
+  assert.equal(out.environments[0].enabled, true);
+  assert.deepEqual(out.environments[0].rules.map((r) => r.id), ["a", "b", "c"]);
+  assert.equal(out.environments[1].name, "herd.json");
+  assert.deepEqual(out.summary, { added: 2, replaced: 1, skipped: 0, targets: ["staging.myapp.com", "herd.json"] });
+  assert.equal(existing[0].rules.length, 2, "input not mutated");
+});
+
+test("buildExport round-trips and keeps rules Requestly-shaped", () => {
+  const env = { id: "e1", domain: "localhost:3000", name: "", enabled: true, rules: [Env.normalizeRule(requestlyRule("a"))] };
+  const out = Env.buildExport([env]);
+  assert.equal(out.mockingmoo, 1);
+  assert.equal("id" in out.environments[0], false);
+  assert.equal(out.environments[0].rules[0].ruleType, "Response");
+  assert.equal(out.environments[0].rules[0].schemaVersion, "3.0.0");
+  assert.equal(Env.parseImport(JSON.stringify(out)).kind, "mockingmoo");
+});
+
+test("hostFromUrl", () => {
+  assert.deepEqual(Env.hostFromUrl("https://Staging.MyApp.com/x"), { hostname: "staging.myapp.com", port: "" });
+  assert.deepEqual(Env.hostFromUrl("http://localhost:3000/"), { hostname: "localhost", port: "3000" });
+  assert.equal(Env.hostFromUrl("chrome://extensions"), null);
+  assert.equal(Env.hostFromUrl(undefined), null);
+});
