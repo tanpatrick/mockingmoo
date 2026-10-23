@@ -70,7 +70,7 @@
         },
         "response": {
           "type": "code",
-          "value": "function modifyResponse({ responseJSON }) {\n  const items = (responseJSON.items || []).slice(0, 2);\n  if (items[0]) items[0].archived = true;\n  return { ...responseJSON, items };\n}\n",
+          "value": "function modifyResponse({ responseJSON }) {\n  // Keep only the first two items the server sent back.\n  const items = (responseJSON.items || []).slice(0, 2);\n\n  // Flag the first one so the UI's \"archived\" state gets exercised.\n  if (items[0]) {\n    items[0].archived = true;\n  }\n\n  return {\n    ...responseJSON,\n    items,\n  };\n}\n",
           "statusCode": "200",
           "serveWithoutRequest": true
         }
@@ -96,7 +96,7 @@
         },
         "response": {
           "type": "code",
-          "value": "function modifyResponse({ requestData, response }) {\n  // JSON request bodies arrive already parsed.\n  if (!requestData || requestData.operationName !== \"GetUser\") return response;\n  return { data: { user: { id: \"1\", name: \"Mocked User\" } } };\n}\n",
+          "value": "function modifyResponse({ requestData, response }) {\n  // JSON request bodies arrive already parsed, so this is the GraphQL envelope.\n  const isGetUser = requestData && requestData.operationName === \"GetUser\";\n\n  // Every other operation passes through to the real server.\n  if (!isGetUser) {\n    return response;\n  }\n\n  return {\n    data: {\n      user: {\n        id: \"1\",\n        name: \"Mocked User\",\n      },\n    },\n  };\n}\n",
           "statusCode": "200",
           "serveWithoutRequest": true
         }

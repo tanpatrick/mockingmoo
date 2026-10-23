@@ -1,0 +1,6 @@
+# Local tooling
+.playwright-mcp/
+.DS_Store
+
+# Build output
+dist/

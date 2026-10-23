@@ -2,21 +2,25 @@
 
 <img src="icons/logo.svg" alt="Mockingmoo logo: a winking cow with a curly-brace muzzle" width="96" align="right">
 
-A small Chrome extension that intercepts `fetch` and `XMLHttpRequest` calls by URL and replaces or rewrites the response. Use it to develop against APIs that don't exist yet, to reproduce errors and edge cases, or to test a UI against awkward data without touching the backend.
+**The API isn't ready. The cow is.**
 
-It works with any HTTP API (REST, GraphQL, RPC), and it can import Requestly "Response" rule exports.
+Mockingmoo is a small Chrome extension that intercepts `fetch` and `XMLHttpRequest` calls by URL and moos back whatever response you tell it to. Build the frontend before the backend exists, reproduce that 500 the on-call engineer swears never happens, or feed your UI the ugliest data you can imagine, all without touching a single server.
+
+It works with any HTTP API (REST, GraphQL, RPC, that one endpoint nobody will admit to writing) and imports Requestly "Response" rule exports, so your old rules can join the herd.
+
+No account. No cloud. No telemetry. Just a cow and your browser.
 
 ## Screenshots
 
-The toolbar popup lists your rules with a master switch and a switch per rule:
+The toolbar popup shows the herd at a glance, with one switch to rule them all and one per cow:
 
 <img src="docs/popup.png" alt="Mockingmoo popup showing the master switch and a list of rules" width="320">
 
-The rules page lets you search, filter, import, export and manage every rule:
+The rules page is where the herd is managed: search, filter, import, export, duplicate and send to pasture:
 
 <img src="docs/rules.png" alt="Mockingmoo rules page with four rules, three active and one paused" width="720">
 
-Expand a rule to edit its URL match and response, with a built-in Prettier button for JS and JSON:
+Expand a rule to edit its URL match and response. There's a **Prettier** button, because life is too short for badly indented mocks:
 
 <img src="docs/editor.png" alt="A rule expanded to show the URL match and the modifyResponse.js editor" width="720">
 
@@ -24,69 +28,82 @@ Expand a rule to edit its URL match and response, with a built-in Prettier butto
 
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. Click **Load unpacked** and select this folder.
-3. Pin the extension if you want the toolbar icon handy.
+3. Pin the extension so the cow is always one click away.
 
-After editing any extension file, click the reload icon on its card in `chrome://extensions`, then reload the target page.
+After editing any extension file, click the reload icon on its card in `chrome://extensions`, then reload the page you're testing. Cows do not hot-reload.
 
 ## Quick start
 
-1. Click the toolbar icon, then **Manage rules**.
-2. Click **Import JSON** and choose `examples/sample-rules.json`.
-3. Switch **Static: users list** on. Imported rules always start paused.
-4. Make sure the popup says **Mockingmoo is on**.
+Five steps to your first moo:
+
+1. Click the toolbar icon, then **Open all rules**.
+2. Click **Import** and choose `examples/sample-rules.json`.
+3. Switch **Static: users list** on. Imported rules always arrive napping, so you have to wake them up.
+4. Check the popup says **Mooing on every tab**. If it says **Napping**, flip the big switch.
 5. Open DevTools on any page and run:
 
    ```js
-   await fetch("/api/users").then((r) => r.json());
+   const response = await fetch("/api/users");
+   const users = await response.json();
+
+   console.table(users.users);
    ```
 
-   You get the mocked users, and the console logs:
+   You get Ada Lovelace and Grace Hopper instead of whatever the real server had in mind, and the console confirms it:
 
    ```
    [Mockingmoo] applied "Static: users list" to GET https://your-site/api/users
    ```
 
-Switch the rule off to get real responses again.
+Switch the rule off and the real responses come back. The server never knew you were gone.
 
 ## Writing your own rules
 
-Click **New rule**, then **Edit** to expand it. A rule has one or more URL matches. Each match has a URL pattern and a response.
+Click **New rule**. A rule has one or more URL matches, and each match has a URL pattern (step 1, "When the request URL…") and a response (step 2, "…then moo back with").
 
-Each response editor has a **Prettier** button that formats the code (or the JSON, for static bodies) in place. Syntax errors are shown under the editor and leave your text unchanged. Prettier 3.3.3 is bundled in `vendor/prettier/`, so it works offline.
+Every response editor has a **Prettier** button that formats the JS, or the JSON for static bodies, in place. Syntax errors show up under the editor and leave your text untouched. Prettier 3.3.3 is bundled in `vendor/prettier/`, so it works offline, on planes, and in basements.
 
 ### URL patterns
 
 | Option | Matches when |
 | --- | --- |
 | URL contains | the request URL includes the text, e.g. `/api/users` |
-| URL equals | the URL is exactly the text |
+| URL equals | the URL is exactly the text, character for character |
 | URL matches regex | the URL matches the regex. Use `/pattern/i` for flags |
 | URL matches wildcard | `*` stands for any text, e.g. `https://*.example.com/api/*` |
 
-### Response type 1: static body
+A rule with a blank pattern matches nothing. This is deliberate: a brand-new cow should not be allowed to hijack every request on the internet before you've finished typing.
 
-Returns a fixed body and status code, e.g. to fake an error:
+### Response type 1: static response
+
+Returns a fixed body and status code. Perfect for faking disasters:
 
 - Pattern: `URL contains` `/api/orders`
-- Type: `Static response body`, status `500`
+- Type: `Static response`, status `500`
 - Body:
 
   ```json
   { "error": "Internal Server Error" }
   ```
 
-With **Skip network** ticked (fetch only), the real request is never sent.
+With **Skip the network** ticked (fetch only), the real request is never sent. The server stays blissfully unaware of your chaos engineering.
 
-A static body is returned as plain text. It is never executed, so put code in a "Rewrite with JS" rule.
+A static body is returned as plain text and is never executed. If you paste code into one, Mockingmoo will politely suggest you meant the other type.
 
 ### Response type 2: rewrite with JS
 
-Define a `modifyResponse` function. It receives the real response and returns the new body, as a string or an object:
+For when you want the real response, just… different. Define a `modifyResponse` function. It receives the real response and returns the new body, as a string or an object:
 
 ```js
 function modifyResponse({ responseJSON }) {
-  const items = (responseJSON.items || []).slice(0, 2); // keep only the first two
-  return { ...responseJSON, items };
+  // Keep only the first two items the server sent back.
+  const items = (responseJSON.items || []).slice(0, 2);
+
+  // Everything else in the payload passes through untouched.
+  return {
+    ...responseJSON,
+    items,
+  };
 }
 ```
 
@@ -98,40 +115,56 @@ function modifyResponse({ responseJSON }) {
 | `responseJSON` | `response` parsed as JSON, or `undefined` if it isn't JSON |
 | `statusCode` | the real HTTP status |
 
-Return `undefined` to leave the response unchanged. If the function throws, the error is logged and the real response is used.
+Return `undefined` to leave the response alone. If the function throws, the error is logged and the real response is used, so a typo in a rule won't take the page down with it.
 
 ### Mocking one call among many
 
-When several calls share one URL, such as GraphQL or a batched RPC endpoint, look at `requestData` and only replace the call you care about:
+GraphQL and batched RPC endpoints love to funnel every operation through one URL. Look at `requestData` and only replace the call you care about:
 
 ```js
 function modifyResponse({ requestData, response }) {
-  if (!requestData || requestData.operationName !== "GetUser") return response;
-  return { data: { user: { id: "1", name: "Mocked User" } } };
+  // JSON request bodies arrive already parsed, so this is the GraphQL envelope.
+  const isGetUser = requestData && requestData.operationName === "GetUser";
+
+  // Not the call we care about? Hand the real response straight back.
+  if (!isGetUser) {
+    return response;
+  }
+
+  return {
+    data: {
+      user: {
+        id: "1",
+        name: "Mocked User",
+      },
+    },
+  };
 }
 ```
 
-Several active rules can match the same URL. They are applied in list order, so each can handle its own operation.
+Several active rules can match the same URL. They run in list order, top to bottom, so each cow can handle its own operation without stepping on hooves.
 
 ## Import and export
 
-- **Import JSON** accepts Requestly exports (an array of `Response` rules). Rules with an `id` already present are replaced, and other rule types are skipped. `examples/sample-rules.json` is a ready-made set.
-- Imported rules always start paused, whatever their `status` in the file. A "Rewrite with JS" rule runs its code inside every page it matches, with that page's cookies and session, so read a shared file before switching its rules on.
-- **Export JSON** downloads your rules in the same format, so they can be shared or committed.
+- **Import** accepts Requestly exports (an array of `Response` rules). Rules with an `id` already in your herd are replaced, and other rule types are skipped. `examples/sample-rules.json` is a ready-made starter herd.
+- **Imported rules always start paused**, whatever their `status` says in the file. A "Rewrite with JS" rule runs its code inside every page it matches, with that page's cookies and session. So read a shared file before switching its cows on. Trust, but `git diff`.
+- **Export** downloads your rules in the same format, ready to share with teammates or commit alongside the project.
 
 ## Limitations
 
-- JS rules use `new Function`, so a page whose CSP blocks `unsafe-eval` will log an error. Static rules still work.
-- For XHR, the real request is still sent and only the response is replaced. "Skip network" applies to `fetch` only.
-- XHR responses of type `arraybuffer` or `blob` are not modified.
-- The extension runs on all sites and in all frames, so it patches `fetch` and `XMLHttpRequest` on every page you open, including banking and webmail. Switch it off from the popup when you aren't mocking.
-- Your rules are handed to the page so they can be applied there, which means any script on any site you visit can read them: names, URL patterns, mock bodies and rewrite code. Don't put secrets in rules, and avoid patterns that reveal internal API paths if that matters to you.
-- It can't mock requests made before the page's scripts run, such as the initial HTML document.
+Even the best cow has its limits.
+
+- JS rules use `new Function`, so a page whose Content Security Policy blocks `unsafe-eval` (GitHub, Outlook, most banks) will log a warning and skip them. Static rules still work there.
+- For XHR, the real request is always sent and only the response is swapped. **Skip the network** applies to `fetch` only.
+- XHR responses of type `arraybuffer` or `blob` pass through untouched. The cow does not do binary.
+- The extension runs on all sites and in all frames, so it patches `fetch` and `XMLHttpRequest` on every page you open, banking and webmail included. Flip it to **Napping** from the popup when you aren't mocking.
+- Your rules are handed to the page so they can be applied there, which means any script on any site you visit could read them: names, URL patterns, mock bodies and rewrite code. Don't put secrets in rules, and avoid patterns that reveal internal API paths if that matters to you.
+- It can't mock requests made before the page's scripts run, such as the initial HTML document. The cow has to be in the field before the request leaves the barn.
 
 ## Logo and icons
 
-The logo is "Cheeky Moo". `icons/logo.svg` is the full-detail version and `icons/logo-small.svg` is a simplified, thicker-stroke version for small sizes. The braces in both are drawn as paths, so they don't need a font. The extension uses `icon-16/32/48.png` (rendered from the small version) and `icon-128.png` (from the full version). If you change the SVGs, re-render those PNGs at the same sizes.
+The logo is "Cheeky Moo". `icons/logo.svg` is the full-detail version and `icons/logo-small.svg` is a simplified, thicker-stroke version for small sizes. The braces in both are drawn as paths, so they don't need a font. The extension uses `icon-16/32/48.png` (rendered from the small version) and `icon-128.png` (from the full version). If you change the SVGs, re-render those PNGs at the same sizes. The cow is particular about this.
 
 ## License
 
-[MIT](LICENSE). Prettier is bundled under its own [MIT license](vendor/prettier/LICENSE).
+[MIT](LICENSE). Prettier is bundled under its own [MIT license](vendor/prettier/LICENSE). Moo responsibly.
