@@ -24,7 +24,7 @@
       <span id="global"></span>
       <button id="import" type="button">Import</button>
       <button id="export" type="button">Export</button>
-      <button id="add" class="primary" type="button">New rule</button>
+      <button id="add-env" class="primary" type="button">New environment</button>
       <input id="file" type="file" accept=".json,application/json" hidden>
     </div>
   </header>
@@ -39,11 +39,12 @@
   </div>
 
   <div id="msg" class="msg" role="status"></div>
-  <main id="rules"></main>
+  <main id="environments"></main>
 
   <script src="vendor/prettier/standalone.js"></script>
   <script src="vendor/prettier/babel.js"></script>
   <script src="vendor/prettier/estree.js"></script>
+  <script src="environments.js"></script>
   <script src="shared.js"></script>
   <script src="options.js"></script>
 </body>

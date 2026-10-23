@@ -121,6 +121,7 @@ input.mono { font-family: var(--mono); font-size: 13px; }
 .badge.code { background: var(--text); color: var(--bg); }
 .badge.static { background: var(--butter); color: #1f1b16; }
 .badge.paused { background: transparent; border-color: var(--soft); color: var(--soft); }
+.badge.parked { background: transparent; border-color: var(--dash); color: var(--soft); }
 
 /* ---- options page --------------------------------------------------------- */
 body.options { max-width: 1040px; margin: 0 auto; padding: 32px 24px 80px; }
@@ -168,7 +169,7 @@ body.options { max-width: 1040px; margin: 0 auto; padding: 32px 24px 80px; }
 .segmented.type .seg-pill { background: var(--pink); box-shadow: 2px 2px 0 var(--ink); }
 
 .msg { min-height: 22px; margin: 0 0 10px; color: var(--muted); }
-#rules { display: flex; flex-direction: column; gap: 16px; }
+#environments { display: flex; flex-direction: column; gap: 16px; }
 .empty {
   text-align: center; padding: 48px 16px; color: var(--muted);
   border: 2px dashed var(--dash); border-radius: 22px;
@@ -190,6 +191,23 @@ body.options { max-width: 1040px; margin: 0 auto; padding: 32px 24px 80px; }
 .rule.paused .title input { color: var(--soft); }
 .rule .summary { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rule .tools { display: flex; gap: 6px; }
+
+/* ---- environment bands ---------------------------------------------------- */
+.env { background: var(--card); border: 2px solid var(--ink); border-radius: 22px; overflow: hidden; }
+.env.parked { border-style: dashed; border-color: var(--dash); }
+.env.off { background: var(--sunk); }
+.env.off .env-head { opacity: 0.7; }
+.env-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; }
+.env.open .env-head { border-bottom: 2px solid var(--ink); }
+.env.parked.open .env-head { border-bottom-color: var(--dash); }
+.env-head .title { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.env-head .title input.domain { font-size: 18px; font-weight: 700; min-height: 40px; }
+.env-head .title input.env-name { min-height: 32px; font-size: 14px; }
+.env-head .hint:empty { display: none; }
+.env-head .summary { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.env-head .tools { display: flex; gap: 6px; align-items: center; }
+.env-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.env-body .empty { padding: 28px 16px; }
 
 .rule .body { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
 .pair { display: flex; flex-direction: column; gap: 18px; }

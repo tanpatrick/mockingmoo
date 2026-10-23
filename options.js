@@ -13,11 +13,11 @@ const CODE_TEMPLATE = `function modifyResponse({ url, method, requestData, respo
 }
 `;
 
-let state = { enabled: true, rules: [] };
-const open = new Set();
+let state = { enabled: true, environments: [] };
+const open = new Set();     // ids of expanded rule cards
+const openEnvs = new Set(); // ids of expanded environment bands
 let saveTimer;
 
-const newId = () => Math.random().toString(16).slice(2, 10);
 const newPair = () => ({
   id: newId(),
   source: { key: "Url", operator: "Contains", value: "" },
@@ -31,7 +31,7 @@ const say = (text) => (document.getElementById("msg").textContent = text);
 
 function save() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => Store.save({ rules: state.rules }), 250);
+  saveTimer = setTimeout(() => Store.save({ environments: state.environments }), 250);
 }
 
 function select(options, value, onchange) {
@@ -107,7 +107,7 @@ function afterRender() {
   }
   if (settle) {
     settle = false;
-    [...document.getElementById("rules").children].slice(0, 12).forEach((el, i) =>
+    [...document.getElementById("environments").children].slice(0, 12).forEach((el, i) =>
       play(el, [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 260, delay: i * 30, fill: "backwards" })
     );
   }
@@ -135,7 +135,135 @@ async function expand(rule) {
   render();
 }
 
-async function removeRule(rule) {
+// ---- environments ---------------------------------------------------------
+const DUPLICATE_HINT = "That domain already has an environment";
+const PARKED_HINT = "Add a domain. Until then this environment is parked and mocks nothing.";
+
+const envEl = (id) => document.querySelector(`.env[data-env-id="${id}"]`);
+
+function addEnvironment({ domain = "", name = "", focus = true } = {}) {
+  const env = Env.createEnvironment({ domain, name });
+  state.environments.unshift(env);
+  openEnvs.add(env.id);
+  query = "";
+  filter = "all";
+  document.getElementById("search").value = "";
+  settle = true;
+  save(); render();
+  if (focus) {
+    const band = envEl(env.id);
+    const input = band && band.querySelector("input.domain");
+    if (input) input.focus();
+  }
+  return env;
+}
+
+async function removeEnvironment(env) {
+  const n = env.rules.length;
+  const ok = await confirmDialog({
+    title: `Delete “${envLabel(env)}”?`,
+    body: `This takes ${n} ${n === 1 ? "rule" : "rules"} with it. Export first if you might want them back.`,
+    confirmLabel: "Delete environment",
+  });
+  if (!ok) return;
+  state.environments = state.environments.filter((e) => e !== env);
+  env.rules.forEach((r) => open.delete(r.id));
+  openEnvs.delete(env.id);
+  save(); render();
+}
+
+// Normalises and applies a typed domain. Returns false (and reverts the field) when another environment owns it.
+function setDomain(env, raw) {
+  const band = envEl(env.id);
+  const input = band && band.querySelector("input.domain");
+  const hint = band && band.querySelector(".domain-hint");
+  const next = Env.normalizeDomain(raw);
+  if (next && next !== env.domain && Env.findByDomain(state.environments, next)) {
+    if (input) input.value = env.domain;
+    if (hint) hint.textContent = DUPLICATE_HINT;
+    return false;
+  }
+  const wasParked = Env.isParked(env);
+  env.domain = next;
+  save();
+  if (input) input.value = next;
+  if (wasParked !== Env.isParked(env)) render();
+  else if (hint) hint.textContent = Env.isParked(env) ? PARKED_HINT : "";
+  return true;
+}
+
+function addRuleTo(env) {
+  const rule = { id: newId(), name: "New rule", description: "", status: "Active", pairs: [newPair()] };
+  env.rules.unshift(rule);
+  open.add(rule.id);
+  openEnvs.add(env.id);
+  pending = { id: rule.id, kind: "enter" };
+  query = "";
+  filter = "all";
+  document.getElementById("search").value = "";
+  save(); render();
+  return rule;
+}
+
+function matchesQuery(env, rule) {
+  if (!query) return true;
+  const hay = [env.domain, env.name, rule.name, ...(rule.pairs || []).map((p) => p.source.value)].join(" ").toLowerCase();
+  return hay.includes(query);
+}
+
+function envBand(env) {
+  const isOpen = openEnvs.has(env.id);
+  const parked = Env.isParked(env);
+  const shown = env.rules.filter(
+    (r) => matchesQuery(env, r) && (filter === "all" || (filter === "active") === (r.status === "Active"))
+  );
+  return h(
+    "section",
+    { class: `env${parked ? " parked" : ""}${env.enabled ? "" : " off"}${isOpen ? " open" : ""}`, "data-env-id": env.id, "aria-label": `Environment: ${envLabel(env)}` },
+    h(
+      "div",
+      { class: "env-head" },
+      toggle(env.enabled, (on) => { env.enabled = on; save(); soon(render); }, "Environment active"),
+      h(
+        "div",
+        { class: "title" },
+        h("input", {
+          type: "text", class: "mono domain", value: env.domain, placeholder: "hello.com", spellcheck: false,
+          "aria-label": "Environment domain", onchange: (e) => setDomain(env, e.target.value),
+        }),
+        h("span", { class: "hint domain-hint" }, parked ? PARKED_HINT : ""),
+        h("input", {
+          type: "text", class: "env-name", value: env.name, placeholder: "Name (optional)",
+          "aria-label": "Environment name", oninput: (e) => { env.name = e.target.value; save(); },
+        }),
+        h("span", { class: "summary" }, envSummary(env))
+      ),
+      parked && h("span", { class: "badge parked" }, "Parked · not applied anywhere"),
+      h(
+        "div",
+        { class: "tools" },
+        h("button", { type: "button", onclick: () => addRuleTo(env) }, icon("plus"), "Rule"),
+        h("button", {
+          type: "button", class: "icon-btn", title: isOpen ? "Collapse" : "Expand", "aria-label": isOpen ? "Collapse environment" : "Expand environment",
+          "aria-expanded": String(isOpen), onclick: () => { if (isOpen) openEnvs.delete(env.id); else openEnvs.add(env.id); render(); },
+        }, h("span", { class: `chev${isOpen ? " flipped" : ""}` }, icon("down"))),
+        h("button", { type: "button", class: "icon-btn danger", title: "Delete", "aria-label": "Delete environment", onclick: () => removeEnvironment(env) }, icon("trash"))
+      )
+    ),
+    isOpen &&
+      h(
+        "div",
+        { class: "env-body" },
+        !env.rules.length
+          ? h("div", { class: "empty" }, h("strong", {}, "No rules here."), "This domain stays real until you say otherwise.")
+          : !shown.length
+            ? h("div", { class: "empty" }, h("strong", {}, "No cows match"), "Try another search or filter.")
+            : shown.map((rule) => ruleCard(env, rule))
+      )
+  );
+}
+
+async function removeRule(env, rule) {
   const ok = await confirmDialog({
     title: `Delete “${rule.name || "Untitled rule"}”?`,
     body: "This cow leaves the herd for good. Export first if you might want it back.",
@@ -151,7 +279,7 @@ async function removeRule(rule) {
       { height: "0px", opacity: 0, transform: "translateX(24px)", marginBottom: "-16px", borderWidth: "0px" },
     ], { duration: 340, fill: "forwards" });
   }
-  state.rules = state.rules.filter((r) => r !== rule);
+  env.rules = env.rules.filter((r) => r !== rule);
   open.delete(rule.id);
   save(); render();
 }
@@ -273,7 +401,7 @@ function cloneRule(rule) {
   return copy;
 }
 
-function ruleCard(rule) {
+function ruleCard(env, rule) {
   const isOpen = open.has(rule.id);
   const active = rule.status === "Active";
   return h(
@@ -297,13 +425,13 @@ function ruleCard(rule) {
         { class: "tools" },
         h("button", { type: "button", class: "icon-btn", title: "Duplicate", "aria-label": "Duplicate rule", onclick: () => {
           const copy = cloneRule(rule);
-          state.rules.splice(state.rules.indexOf(rule) + 1, 0, copy);
+          env.rules.splice(env.rules.indexOf(rule) + 1, 0, copy);
           open.add(copy.id);
           pending = { id: copy.id, kind: "enter" };
           save(); render();
         } }, icon("copy")),
         h("button", { type: "button", class: "icon-btn", title: isOpen ? "Collapse" : "Edit", "aria-label": isOpen ? "Collapse rule" : "Edit rule", "aria-expanded": String(isOpen), onclick: () => expand(rule) }, h("span", { class: `chev${isOpen ? " flipped" : ""}` }, icon("down"))),
-        h("button", { type: "button", class: "icon-btn danger", title: "Delete", "aria-label": "Delete rule", onclick: () => removeRule(rule) }, icon("trash"))
+        h("button", { type: "button", class: "icon-btn danger", title: "Delete", "aria-label": "Delete rule", onclick: () => removeRule(env, rule) }, icon("trash"))
       )
     ),
     isOpen &&
@@ -316,12 +444,6 @@ function ruleCard(rule) {
   );
 }
 
-function matchesQuery(rule) {
-  if (!query) return true;
-  const hay = [rule.name, ...(rule.pairs || []).map((p) => p.source.value)].join(" ").toLowerCase();
-  return hay.includes(query);
-}
-
 function render() {
   const pills = capturePills();
   document.getElementById("global").replaceChildren(
@@ -330,9 +452,10 @@ function render() {
       h("span", { class: "master-label" }, state.enabled ? "Mooing" : "Napping"))
   );
 
+  const all = state.environments.flatMap((env) => env.rules);
   const counts = {
-    all: state.rules.length,
-    active: state.rules.filter((r) => r.status === "Active").length,
+    all: all.length,
+    active: all.filter((r) => r.status === "Active").length,
   };
   counts.paused = counts.all - counts.active;
   document.getElementById("filters").replaceWith(
@@ -345,108 +468,35 @@ function render() {
     }), { id: "filters" })
   );
 
-  const shown = state.rules.filter(
-    (r) => matchesQuery(r) && (filter === "all" || (filter === "active") === (r.status === "Active"))
-  );
-  const root = document.getElementById("rules");
-  if (!state.rules.length) {
+  const root = document.getElementById("environments");
+  if (!state.environments.length) {
     root.replaceChildren(
       h("div", { class: "empty" },
         h("img", { src: "icons/logo-small.svg", alt: "", width: 72, height: 72 }),
         h("strong", {}, "The pasture is empty"),
-        "Create a rule, or import a Requestly export.")
+        "Create an environment, or import a file.")
     );
-  } else if (!shown.length) {
-    root.replaceChildren(h("div", { class: "empty" }, h("strong", {}, "No cows match"), "Try another search or filter."));
   } else {
-    root.replaceChildren(...shown.map(ruleCard));
+    root.replaceChildren(...state.environments.map(envBand));
   }
   placePills(pills);
   afterRender();
 }
 
-function importRules(text) {
-  const parsed = JSON.parse(text);
-  const items = Array.isArray(parsed) ? parsed : [parsed];
-  let added = 0;
-  let replaced = 0;
-  let skipped = 0;
-  for (const item of items) {
-    if (!item || item.ruleType !== "Response" || !Array.isArray(item.pairs)) {
-      skipped++;
-      continue;
-    }
-    const rule = {
-      id: item.id || newId(),
-      name: item.name || "Imported rule",
-      description: item.description || "",
-      // Imported rules always start paused: a shared file must never run code on every site the moment it is loaded.
-      status: "Inactive",
-      pairs: item.pairs.map((p) => ({
-        id: p.id || newId(),
-        source: { key: p.source.key || "Url", operator: p.source.operator || "Contains", value: p.source.value || "" },
-        response: {
-          type: p.response.type === "static" ? "static" : "code",
-          value: p.response.value || "",
-          statusCode: p.response.statusCode || "200",
-          serveWithoutRequest: p.response.serveWithoutRequest !== false,
-        },
-      })),
-    };
-    const index = state.rules.findIndex((r) => r.id === rule.id);
-    if (index >= 0) { state.rules[index] = rule; replaced++; } else { state.rules.push(rule); added++; }
-  }
-  Store.save({ rules: state.rules });
-  render();
-  say(`Imported ${added} new, ${replaced} replaced${skipped ? `, ${skipped} skipped (not Response rules)` : ""}. Imported rules start paused; switch on the ones you trust.`);
-}
-
-function exportRules() {
-  const data = state.rules.map((rule) => ({
-    ...rule,
-    schemaVersion: "3.0.0",
-    ruleType: "Response",
-    groupId: "",
-    isSample: false,
-  }));
-  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
-  h("a", { href: url, download: "mock-rules.json" }).click();
-  URL.revokeObjectURL(url);
-}
-
-function addRule() {
-  const rule = { id: newId(), name: "New rule", description: "", status: "Active", pairs: [newPair()] };
-  state.rules.unshift(rule);
-  open.add(rule.id);
-  pending = { id: rule.id, kind: "enter" };
-  query = "";
-  filter = "all";
-  document.getElementById("search").value = "";
-  save(); render();
-}
-
-document.getElementById("add").addEventListener("click", addRule);
+document.getElementById("add-env").addEventListener("click", () => addEnvironment({}));
 document.getElementById("search-icon").replaceWith(icon("search"));
 document.getElementById("search").addEventListener("input", (e) => { query = e.target.value.trim().toLowerCase(); settle = true; render(); });
-document.getElementById("export").addEventListener("click", exportRules);
-document.getElementById("import").addEventListener("click", () => document.getElementById("file").click());
-document.getElementById("file").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  e.target.value = "";
-  if (!file) return;
-  try {
-    importRules(await file.text());
-  } catch (err) {
-    say(`Import failed: ${err.message}`);
-  }
-});
+// Import and export arrive in the next step.
+document.getElementById("export").addEventListener("click", () => say("Coming in the next step"));
+document.getElementById("import").addEventListener("click", () => say("Coming in the next step"));
 
 Store.load().then((loaded) => {
   state = loaded;
-  // The popup opens options.html#new to start a rule straight away.
+  state.environments.forEach((env) => openEnvs.add(env.id));
+  // The popup opens options.html#new to start an environment straight away.
   if (location.hash === "#new") {
     history.replaceState(null, "", location.pathname);
-    addRule();
+    addEnvironment({});
   } else {
     render();
   }
@@ -457,7 +507,7 @@ chrome.storage.onChanged.addListener(async () => {
   if (document.activeElement && document.activeElement.matches("input[type=text], input[type=number], textarea")) return;
   const fresh = await Store.load();
   // Our own saves echo back here; skip those so running animations aren't rebuilt mid-flight.
-  if (fresh.enabled === state.enabled && JSON.stringify(fresh.rules) === JSON.stringify(state.rules)) return;
+  if (fresh.enabled === state.enabled && JSON.stringify(fresh.environments) === JSON.stringify(state.environments)) return;
   state = fresh;
   render();
 });
