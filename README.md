@@ -187,7 +187,7 @@ Even the best cow has its limits.
 - For XHR, the real request is always sent and only the response is swapped. **Skip the network** applies to `fetch` only.
 - XHR responses of type `arraybuffer` or `blob` pass through untouched. The cow does not do binary.
 - The extension runs on all sites and in all frames, so it patches `fetch` and `XMLHttpRequest` on every page you open, banking and webmail included. Flip it to **Napping** from the popup when you aren't mocking.
-- The rules of the environment that matches the page are handed to that page so they can be applied there, which means any script on that page could read them: names, URL patterns, mock bodies and rewrite code. Pages that match no environment get nothing. Don't put secrets in rules, and avoid patterns that reveal internal API paths if that matters to you.
+- The rules of the environment that matches the page are handed to that page so they can be applied there, which means any script on that page could read them: names, URL patterns, mock bodies and rewrite code. That includes cross-origin frames embedded in a matching page (ads, widgets), which also receive and can read that environment's rules. Pages that match no environment get nothing. Don't put secrets in rules, and avoid patterns that reveal internal API paths if that matters to you.
 - Permissions: `storage` and `activeTab`. The latter only lets the popup see the address of the tab you clicked the icon on.
 - It can't mock requests made before the page's scripts run, such as the initial HTML document. The cow has to be in the field before the request leaves the barn.
 
