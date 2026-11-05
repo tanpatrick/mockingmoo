@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockingmoo – free Chrome extension for API mocking</title>
+<meta name="description" content="Mock, stub or rewrite fetch and XHR responses right in Chrome. No proxy, no account, no change to your API URL. Free, open source, imports Requestly rules.">
+<link rel="canonical" href="https://tanpatrick.github.io/mockingmoo/">
+<meta name="theme-color" content="#fffaf0">
+<link rel="icon" type="image/svg+xml" href="img/logo.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icon-32.png">
+<link rel="apple-touch-icon" href="img/icon-128.png">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Mockingmoo">
+<meta property="og:title" content="Mockingmoo – free Chrome extension for API mocking">
+<meta property="og:description" content="Mock, stub or rewrite fetch and XHR responses right in Chrome. No proxy, no account, no change to your API URL.">
+<meta property="og:url" content="https://tanpatrick.github.io/mockingmoo/">
+<meta property="og:image" content="https://tanpatrick.github.io/mockingmoo/img/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Mockingmoo",
+  "description": "Free, open-source Chrome extension that intercepts fetch and XMLHttpRequest calls by URL and mocks, stubs or rewrites the response in the browser.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Chrome 111 or later",
+  "url": "https://tanpatrick.github.io/mockingmoo/",
+  "downloadUrl": "https://github.com/tanpatrick/mockingmoo/releases/latest",
+  "codeRepository": "https://github.com/tanpatrick/mockingmoo",
+  "license": "https://opensource.org/licenses/MIT",
+  "image": "https://tanpatrick.github.io/mockingmoo/img/social-preview.png",
+  "author": { "@type": "Person", "name": "Patrick Tan", "url": "https://github.com/tanpatrick" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<style>
+:root {
+  --bg: #fffaf0; --card: #ffffff; --sunk: #f3eadb;
+  --ink: #1f1b16; --text: #1f1b16; --muted: #6b6257;
+  --pink: #f4a3b4; --pink-strong: #c2476a; --pink-wash: #fff3f5;
+  --butter: #ffc857; --on: #2f8f55;
+  --code-bg: #1f1b16; --code-text: #fff8ec;
+  --shadow: 4px 4px 0 var(--ink);
+  --display: ui-rounded, "SF Pro Rounded", "Nunito", "Fredoka", system-ui, sans-serif;
+  --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1714; --card: #24201b; --sunk: #302a23;
+    --ink: #d8ccb8; --text: #f6efe3; --muted: #b3a898;
+    --pink-strong: #f08aa6; --pink-wash: #3a2329;
+    --code-bg: #12100d;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 var(--body); }
+a { color: var(--pink-strong); }
+a:focus-visible, .btn:focus-visible { outline: 3px solid var(--butter); outline-offset: 3px; }
+img { max-width: 100%; height: auto; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 800; letter-spacing: -0.4px; line-height: 1.15; }
+h2 { font-size: clamp(26px, 4vw, 34px); margin: 0 0 16px; }
+h3 { font-size: 21px; margin: 0 0 8px; }
+code { font-family: var(--mono); font-size: 0.88em; background: var(--sunk); padding: 1px 6px; border-radius: 6px; }
+pre { background: var(--code-bg); color: var(--code-text); border: 2px solid var(--ink); border-radius: 14px;
+      padding: 16px 18px; overflow-x: auto; font: 14px/1.55 var(--mono); box-shadow: var(--shadow); }
+pre code { background: none; padding: 0; font-size: inherit; }
+.muted { color: var(--muted); }
+
+/* header */
+.nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text);
+         font-family: var(--display); font-weight: 800; font-size: 22px; }
+.brand b { font-weight: inherit; }
+.brand span { color: var(--pink-strong); }
+.nav ul { display: flex; gap: 20px; list-style: none; margin: 0; padding: 0; font-weight: 600; }
+.nav ul a { color: var(--text); text-decoration: none; }
+.nav ul a:hover { color: var(--pink-strong); }
+@media (max-width: 640px) { .nav ul { display: none; } }
+
+/* hero */
+.hero { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 40px; align-items: center; padding: 40px 0 64px; }
+@media (max-width: 820px) { .hero { grid-template-columns: 1fr; padding-top: 16px; } }
+.tag { display: inline-block; background: var(--butter); color: #1f1b16; border: 2px solid var(--ink); border-radius: 999px;
+       padding: 2px 12px; font-weight: 700; font-size: 14px; }
+.hero h1 { font-size: clamp(36px, 6vw, 56px); margin: 16px 0; }
+.hero h1 em { font-style: normal; color: var(--pink-strong); }
+.hero p.lede { font-size: 19px; margin: 0 0 26px; max-width: 34em; }
+.ctas { display: flex; flex-wrap: wrap; gap: 14px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 20px;
+       border: 2px solid var(--ink); border-radius: 14px; font-weight: 700; text-decoration: none;
+       background: var(--card); color: var(--text); box-shadow: var(--shadow); transition: transform .08s, box-shadow .08s; }
+.btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink); }
+.btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+.btn.primary { background: var(--pink); color: #1f1b16; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 24px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 15px; font-weight: 600; }
+.facts li::before { content: "✓ "; color: var(--on); }
+.hero-shot { justify-self: center; background: var(--card); border: 2px solid var(--ink); border-radius: 22px;
+             box-shadow: 8px 8px 0 var(--ink); overflow: hidden; transform: rotate(1.5deg); max-width: 340px; }
+.hero-shot img { display: block; }
+
+section { padding: 56px 0; }
+section.band { background: var(--sunk); border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); }
+
+/* features */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+.card { background: var(--card); border: 2px solid var(--ink); border-radius: 18px; padding: 22px; box-shadow: var(--shadow); }
+.card p { margin: 0; color: var(--muted); }
+.card .emoji { font-size: 28px; line-height: 1; margin-bottom: 10px; display: block; }
+
+/* screenshots */
+figure { margin: 0; }
+.shot { background: var(--card); border: 2px solid var(--ink); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
+.shot img { display: block; width: 100%; }
+figcaption { margin-top: 12px; color: var(--muted); font-size: 15px; }
+.shots { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+
+/* steps */
+ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+ol.steps > li { counter-increment: s; position: relative; padding-left: 52px; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: -2px; width: 36px; height: 36px;
+  display: grid; place-items: center; background: var(--butter); color: #1f1b16; border: 2px solid var(--ink);
+  border-radius: 50%; font-family: var(--display); font-weight: 800; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+.two > *, .hero > *, .shots > * { min-width: 0; }
+@media (max-width: 820px) { .two { grid-template-columns: 1fr; } }
+
+/* table */
+.table-wrap { overflow-x: auto; border: 2px solid var(--ink); border-radius: 16px; box-shadow: var(--shadow); background: var(--card); }
+table { border-collapse: collapse; width: 100%; min-width: 680px; font-size: 15px; }
+th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--sunk); vertical-align: top; }
+thead th { background: var(--pink-wash); font-family: var(--display); }
+tbody th { font-weight: 700; }
+td.us { background: var(--pink-wash); font-weight: 600; }
+
+/* faq */
+details { background: var(--card); border: 2px solid var(--ink); border-radius: 14px; padding: 14px 18px; margin-bottom: 12px; }
+summary { cursor: pointer; font-weight: 700; }
+details p { margin: 10px 0 0; color: var(--muted); }
+
+footer { padding: 36px 0 48px; color: var(--muted); font-size: 15px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header class="wrap nav">
+  <a class="brand" href="./"><img src="img/logo.svg" alt="" width="40" height="40"><b>Mocking<span>moo</span></b></a>
+  <nav aria-label="Main">
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#compare">Compare</a></li>
+      <li><a href="https://github.com/tanpatrick/mockingmoo">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <span class="tag">Free · open source · MIT</span>
+      <h1>Mock any API response, right in <em>Chrome</em>.</h1>
+      <p class="lede">Mockingmoo is a Chrome extension for API mocking. It intercepts <code>fetch</code> and <code>XMLHttpRequest</code> calls by URL and lets you mock, stub or rewrite the response in the browser, with no proxy and no change to your app's API URL.</p>
+      <div class="ctas">
+        <a class="btn primary" href="https://github.com/tanpatrick/mockingmoo/releases/latest">Download the latest release</a>
+        <a class="btn" href="https://github.com/tanpatrick/mockingmoo">View on GitHub</a>
+      </div>
+      <ul class="facts">
+        <li>No account</li><li>No cloud</li><li>No telemetry</li><li>Imports Requestly rules</li>
+      </ul>
+    </div>
+    <div class="hero-shot">
+      <img src="img/popup.png" alt="Mockingmoo popup with the master switch and a list of mock rules" width="360" height="580">
+    </div>
+  </div>
+
+  <section class="band" id="features">
+    <div class="wrap">
+      <h2>The API isn't ready. The cow is.</h2>
+      <p class="muted" style="max-width:40em;margin:0 0 28px">Build the frontend before the backend exists, reproduce that 500 nobody believes happens, or feed your UI the ugliest data you can imagine, all without touching a server.</p>
+      <div class="grid">
+        <div class="card"><span class="emoji" aria-hidden="true">📦</span><h3>Static mock responses</h3><p>Return a fixed JSON body and status code. Tick "Skip the network" and the real request is never sent.</p></div>
+        <div class="card"><span class="emoji" aria-hidden="true">✏️</span><h3>Rewrite real responses</h3><p>Write a small <code>modifyResponse</code> function to change the real payload: trim lists, flip flags, inject edge cases.</p></div>
+        <div class="card"><span class="emoji" aria-hidden="true">🎯</span><h3>Match by URL</h3><p>Contains, equals, wildcard or regex. Works with REST, GraphQL and RPC endpoints alike.</p></div>
+        <div class="card"><span class="emoji" aria-hidden="true">🧬</span><h3>Mock one GraphQL operation</h3><p>Look at the request body and replace only the operation you care about. Everything else passes through.</p></div>
+        <div class="card"><span class="emoji" aria-hidden="true">🔁</span><h3>Requestly import</h3><p>Import Requestly "Response" rule exports and export your own rules to share or commit.</p></div>
+        <div class="card"><span class="emoji" aria-hidden="true">🔒</span><h3>Stays in your browser</h3><p>No sign-up, no sync, no servers. Prettier is bundled, so the editor works offline too.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>See it in action</h2>
+      <div class="shots">
+        <figure>
+          <div class="shot"><img src="img/rules.png" alt="Mockingmoo rules page with four mock rules, three active and one paused" width="1100" height="700" loading="lazy"></div>
+          <figcaption>The rules page: search, filter, import, export and duplicate your mock rules.</figcaption>
+        </figure>
+        <figure>
+          <div class="shot"><img src="img/editor.png" alt="A mock rule expanded to show the URL match and a modifyResponse JavaScript editor" width="1100" height="1166" loading="lazy"></div>
+          <figcaption>Each rule pairs a URL match with a static body or a <code>modifyResponse</code> function.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="install">
+    <div class="wrap two">
+      <div>
+        <h2>Install</h2>
+        <ol class="steps">
+          <li>Download the zip from the <a href="https://github.com/tanpatrick/mockingmoo/releases/latest">latest release</a> and unzip it, or clone the repository.</li>
+          <li>Open <code>chrome://extensions</code> and turn on <strong>Developer mode</strong>.</li>
+          <li>Click <strong>Load unpacked</strong> and select the folder.</li>
+          <li>Pin the extension so the cow is one click away.</li>
+        </ol>
+      </div>
+      <div>
+        <h2>Your first mock</h2>
+        <ol class="steps">
+          <li>Open the rules page and <strong>Import</strong> <code>examples/sample-rules.json</code>.</li>
+          <li>Switch on <strong>Static: users list</strong>. Imported rules start paused.</li>
+          <li>Run this in DevTools on any page:</li>
+        </ol>
+<pre><code>const response = await fetch("/api/users");
+const users = await response.json();
+console.table(users.users);</code></pre>
+        <p class="muted">You get Ada Lovelace and Grace Hopper instead of the real server's answer.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Rewrite a real response with a few lines of JS</h2>
+      <p class="muted" style="max-width:40em">The function receives the request and the real response, and returns the new body. Return <code>undefined</code> to leave it alone.</p>
+<pre><code>function modifyResponse({ requestData, responseJSON }) {
+  // Only touch the GraphQL operation we care about.
+  if (requestData?.operationName !== "GetCart") return undefined;
+
+  return { ...responseJSON, data: { cart: { items: [] } } };
+}</code></pre>
+    </div>
+  </section>
+
+  <section class="band" id="compare">
+    <div class="wrap">
+      <h2>Mockingmoo vs Requestly, Mockoon and Postman</h2>
+      <p class="muted" style="max-width:44em;margin:0 0 24px">All good tools. Mockingmoo is the small one that lives in your browser and does one job: mocking and rewriting API responses.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th scope="col"></th><th scope="col">Mockingmoo</th><th scope="col">Requestly</th><th scope="col">Mockoon</th><th scope="col">Postman mock servers</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Where it runs</th><td class="us">Inside the page, as a Chrome extension</td><td>Browser extension and desktop app</td><td>Local mock server (app or CLI)</td><td>Postman's cloud</td></tr>
+            <tr><th scope="row">Change your app's API URL?</th><td class="us">No</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+            <tr><th scope="row">Account</th><td class="us">None</td><td>Optional, for sync and teams</td><td>None</td><td>Required</td></tr>
+            <tr><th scope="row">Open source</th><td class="us">Yes, MIT</td><td>Yes</td><td>Yes, MIT</td><td>No</td></tr>
+            <tr><th scope="row">Imports Requestly rules</th><td class="us">Yes</td><td>Native</td><td>No</td><td>No</td></tr>
+            <tr><th scope="row">Scope</th><td class="us">Response mocking and rewriting</td><td>Also redirects, headers, scripts, recording</td><td>Full mock server: routes, latency, proxying</td><td>Mocks tied to Postman collections</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Questions</h2>
+      <details>
+        <summary>Is Mockingmoo free?</summary>
+        <p>Yes. It's open source under the MIT license, with no account, paid tier or telemetry.</p>
+      </details>
+      <details>
+        <summary>Can I use it as a Requestly alternative?</summary>
+        <p>For response mocking, yes. It imports Requestly "Response" rule exports directly. It doesn't cover Requestly's other rule types such as redirects or header changes.</p>
+      </details>
+      <details>
+        <summary>Does it work with GraphQL?</summary>
+        <p>Yes. JS rules receive the parsed request body, so you can match on <code>operationName</code> and mock one operation while the rest pass through.</p>
+      </details>
+      <details>
+        <summary>Why don't my JS rules run on some sites?</summary>
+        <p>JS rules use <code>new Function</code>, which pages with a strict Content Security Policy block. Static rules still work there.</p>
+      </details>
+      <details>
+        <summary>Does it mock XHR as well as fetch?</summary>
+        <p>Yes. For XHR the real request is still sent and only the response is swapped. "Skip the network" applies to fetch only.</p>
+      </details>
+      <p style="margin-top:24px">The full guide, including limitations and the security notes, is in the <a href="https://github.com/tanpatrick/mockingmoo#readme">README on GitHub</a>.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p><a href="https://github.com/tanpatrick/mockingmoo">Mockingmoo on GitHub</a> · <a href="https://github.com/tanpatrick/mockingmoo/blob/main/LICENSE">MIT license</a> · Moo responsibly.</p>
+</footer>
+
+</body>
+</html>
