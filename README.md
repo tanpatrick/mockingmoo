@@ -4,6 +4,8 @@
 
 **The API isn't ready. The cow is.**
 
+[Website](https://tanpatrick.github.io/mockingmoo/) · [Download the latest release](https://github.com/tanpatrick/mockingmoo/releases/latest)
+
 Mockingmoo is a free, open-source Chrome extension for API mocking. It intercepts `fetch` and `XMLHttpRequest` requests by URL and lets you mock, stub or rewrite the response right in the browser, with no proxy and no change to your app's API URL. It imports Requestly "Response" rules, so it works as a drop-in Requestly alternative for response mocking.
 
 Build the frontend before the backend exists, reproduce that 500 the on-call engineer swears never happens, or feed your UI the ugliest data you can imagine, all without touching a single server. Works with any HTTP API: REST, GraphQL, RPC, and that one endpoint nobody will admit to writing.
