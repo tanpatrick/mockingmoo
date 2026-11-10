@@ -28,7 +28,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p _site/img
-          cp site/index.html site/sitemap.xml _site/
+          cp site/index.html site/sitemap.xml site/google0ed761b98763c2c1.html _site/
           cp docs/popup.png docs/rules.png docs/editor.png docs/social-preview.png _site/img/
           cp icons/logo.svg icons/icon-32.png icons/icon-128.png _site/img/
 
