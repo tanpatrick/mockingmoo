@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Mockingmoo",
   "version": "1.0.0",
-  "description": "Intercept fetch/XHR requests by URL and replace or rewrite the response. Imports Requestly Response-rule exports.",
+  "description": "Mock any API response in Chrome in seconds. Intercept fetch and XHR by URL to stub or rewrite responses. No proxy, no account.",
   "minimum_chrome_version": "111",
   "icons": {"16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png"},
   "permissions": ["storage", "activeTab"],
