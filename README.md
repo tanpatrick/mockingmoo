@@ -6,7 +6,7 @@
 
 [Website](https://tanpatrick.github.io/mockingmoo/) · [Download the latest release](https://github.com/tanpatrick/mockingmoo/releases/latest)
 
-Mockingmoo is a free, open-source Chrome extension for API mocking. It intercepts `fetch` and `XMLHttpRequest` requests by URL and lets you mock, stub or rewrite the response right in the browser, with no proxy and no change to your app's API URL. It imports Requestly "Response" rules, so it works as a drop-in Requestly alternative for response mocking.
+Mockingmoo is a free, open-source Chrome extension for API mocking. It intercepts `fetch` and `XMLHttpRequest` requests by URL and lets you mock, stub or rewrite the response right in the browser, with no proxy and no change to your app's API URL.
 
 Build the frontend before the backend exists, reproduce that 500 the on-call engineer swears never happens, or feed your UI the ugliest data you can imagine, all without touching a single server. Works with any HTTP API: REST, GraphQL, RPC, and that one endpoint nobody will admit to writing.
 
@@ -165,21 +165,6 @@ Several active rules can match the same URL. They run in list order, top to bott
 - **A plain Requestly file asks where to graze.** Requestly has no idea what a domain is, so the import prompts for one. **Import here** puts the rules in the environment for that domain (creating it if needed). **Skip, park them** drops them into a parked environment that mocks nothing until you give it a domain. A Mockingmoo file already knows its environments, so it brings them along without asking.
 - **Imported rules always start paused**, whatever their `status` says in the file, and parked environments are a second, independent safety. A "Rewrite with JS" rule runs its code inside every page it matches, with that page's cookies and session. So read a shared file before switching its cows on. Trust, but `git diff`.
 - **Export** downloads your environments, each with its domain, name and rules, ready to share with teammates or commit alongside the project. Each environment's `rules` array is still a valid Requestly import, so nothing stops you handing just that part to a colleague who runs the other tool.
-
-## Why not Requestly, Mockoon or Postman?
-
-Those are all good tools. Mockingmoo is the small one that lives in your browser and does one job.
-
-| | Mockingmoo | Requestly | Mockoon | Postman mock servers |
-| --- | --- | --- | --- | --- |
-| Where it runs | Inside the page, as a Chrome extension | Browser extension and desktop app | Local mock server (desktop app or CLI) | Postman's cloud |
-| Change your app's API URL? | No | No | Yes, point your app at the mock server | Yes, point your app at the mock URL |
-| Account | None | Optional, needed for sync and teams | None | Required |
-| Open source | Yes, MIT | Yes | Yes, MIT | No |
-| Imports Requestly rules | Yes | Native | No | No |
-| What it covers | Response mocking and rewriting, grouped per domain | Also redirects, headers, scripts, HAR recording, sessions | A full mock server: routes, latency, proxying | Mocks tied to Postman collections |
-
-Pick Mockingmoo when you want to mock or override API responses in Chrome with zero setup, keep everything local, and stay free. Pick the others when you need request recording, header rules, team sync, or a mock that non-browser clients can hit.
 
 ## Limitations
 
